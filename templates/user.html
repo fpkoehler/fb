@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FB Confidence Pool</title>
+<link rel="stylesheet" type="text/css" href="../../resources/styles.css">
+<script type="text/javascript" src="../../resources/sorttable.js"></script>
+</head>
+
+<body>
+<h1>FB Confidence Pool</h1>
+
+<ul class="menu_strip">
+  <li class="menu_li_active">Home</li>
+  <li class="menu_li"><a href="/profile">Profile</a></li>
+  <li class="menu_li" style="float:right"><a href="/logout">Logout</a></li>
+  <li class="menu_li_login">Hi {{.Name}}</li>
+</ul>
+
+<div>
+<br>
+Today is {{.Date}}
+</div>
+
+<div class="floating">
+<fieldset>
+<legend>Choose Picks</legend>
+  {{range $index, $week := .Picks}}
+  <p><a href=select/{{$week.Indx}}>week {{$week.Num}}</a><small> {{$week.StartDate}} {{$week.EndDate}}</small></p>
+  {{end}}
+</fieldset>
+</div>
+
+<div class="floating">
+<fieldset>
+<legend>Results for {{.Name}}</legend>
+  {{range $index, $week := .Results}}
+  <p><a href=results/{{$week.User}}/{{$index}}>week {{$week.Num}}</a><small> {{$week.StartDate}} {{$week.EndDate}}</small></p>
+  {{end}}
+</fieldset>
+</div>
+
+<div class="floating">
+<fieldset>
+<legend>Standings</legend>
+ <table class="sortable">
+  <tr> <th>User</th> <th>Points</th> <th>Played</th> <th>Won</th> <th>Ave/Week</th></tr>
+  {{range $index, $srow := .Standings}}
+    <tr> <td>{{$srow.Name}}</td> <td>{{$srow.Total}}</td> <td>{{$srow.WeeksPlayed}}</td> <td>{{$srow.WeeksWon}}</td> <td>{{$srow.AvePerWeek}}</td> </tr>
+  {{end}}
+ </table>
+</fieldset>
+</div>
+
+
+</body>
+</html>

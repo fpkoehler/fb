@@ -6,24 +6,45 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/GeertJohan/go.rice"
 	"golang.org/x/net/html"
 )
 
-var templates = template.Must(template.ParseFiles(
-	"ylogin.html",
-	"yuser.html",
-	"yselect.html",
-	"yprofile.html",
-	"yresult.html",
-	"yregister.html",
-	"yerror.html",
-	"ypwreset.html",
-	"yreset.html"))
+// var templates = template.Must(template.ParseFiles(
+// 	"ylogin.html",
+// 	"yuser.html",
+// 	"yselect.html",
+// 	"yprofile.html",
+// 	"yresult.html",
+// 	"yregister.html",
+// 	"yerror.html",
+// 	"ypwreset.html",
+// 	"yreset.html"))
+
+var templates = template.New("")
+var templateBox *rice.Box
+
+func newTemplate(path string, _ os.FileInfo, _ error) error {
+	if path == "" {
+		return nil
+	}
+	templateString, err := templateBox.String(path)
+	if err != nil {
+		log.Panicf("Unable to read template: path=%s, err=%s", path, err)
+	}
+	log.Println("Parsing template", path)
+	_, err = templates.New(path).Parse(templateString)
+	if err != nil {
+		log.Panicf("Unable to parse: path=%s, err=%s", path, err)
+	}
+	return nil
+}
 
 func errorPage(w http.ResponseWriter, format string, a ...interface{}) {
 	data := struct {
@@ -31,7 +52,7 @@ func errorPage(w http.ResponseWriter, format string, a ...interface{}) {
 	}{
 		Error: fmt.Sprintf(format, a...),
 	}
-	err := templates.ExecuteTemplate(w, "yerror.html", &data)
+	err := templates.ExecuteTemplate(w, "error.html", &data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -56,7 +77,7 @@ func clearSession(w http.ResponseWriter) {
 
 func registerGetHandler(w http.ResponseWriter, r *http.Request) {
 	dummy := struct{}{}
-	err := templates.ExecuteTemplate(w, "yregister.html", &dummy)
+	err := templates.ExecuteTemplate(w, "register.html", &dummy)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -193,7 +214,7 @@ func pwresetGetHandler(w http.ResponseWriter, r *http.Request) {
 		Token: token,
 	}
 
-	err := templates.ExecuteTemplate(w, "yreset.html", &data)
+	err := templates.ExecuteTemplate(w, "reset.html", &data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -243,7 +264,7 @@ func pwresetPostHandler(w http.ResponseWriter, r *http.Request) {
 /* Password Reset Request */
 func pwresetReqGetHandler(w http.ResponseWriter, r *http.Request) {
 	dummy := struct{}{}
-	err := templates.ExecuteTemplate(w, "ypwreset.html", &dummy)
+	err := templates.ExecuteTemplate(w, "pwreset.html", &dummy)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -315,7 +336,7 @@ func loginGetHandler(w http.ResponseWriter, r *http.Request) {
 		Standings: getStandings(),
 	}
 
-	err := templates.ExecuteTemplate(w, "ylogin.html", &data)
+	err := templates.ExecuteTemplate(w, "login.html", &data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -466,7 +487,7 @@ func userGetHandler(w http.ResponseWriter, r *http.Request) {
 		Stats:     userStats,
 	}
 
-	err := templates.ExecuteTemplate(w, "yuser.html", &data)
+	err := templates.ExecuteTemplate(w, "user.html", &data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -485,7 +506,7 @@ func profileGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := templates.ExecuteTemplate(w, "yprofile.html", user)
+	err := templates.ExecuteTemplate(w, "profile.html", user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -653,7 +674,7 @@ func resultGetHandler(w http.ResponseWriter, r *http.Request) {
 		Players:    players,
 	}
 
-	err = templates.ExecuteTemplate(w, "yresult.html", &data)
+	err = templates.ExecuteTemplate(w, "result.html", &data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -792,7 +813,7 @@ func selectGetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = templates.ExecuteTemplate(w, "yselect.html", &data)
+	err = templates.ExecuteTemplate(w, "select.html", &data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -899,4 +920,55 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	/* back to main user page */
 	http.Redirect(w, r, "/user", http.StatusFound)
+}
+
+func webSrv() {
+	// Load and parse templates (from binary or disk)
+	templateBox = rice.MustFindBox("templates")
+	templateBox.Walk("", newTemplate)
+
+	// The resources directory that contains CSS and JavaScript files
+	resourceBox := rice.MustFindBox("resources")
+	resourceFileServer := http.StripPrefix("/resources/", http.FileServer(resourceBox.HTTPBox()))
+	http.Handle("/resources/", resourceFileServer)
+
+	/* handlers for GETs */
+	http.HandleFunc("/", loginGetHandler)
+	http.HandleFunc("/user", userGetHandler)
+	http.HandleFunc("/profile", profileGetHandler)
+	http.HandleFunc("/select/", selectGetHandler)
+	http.HandleFunc("/results/", resultGetHandler)
+	http.HandleFunc("/register", registerGetHandler)
+	http.HandleFunc("/pwreset", pwresetReqGetHandler)
+	http.HandleFunc("/reset", pwresetGetHandler)
+
+	/* handlers for POSTs */
+	http.HandleFunc("/login", loginPostHandler)
+	http.HandleFunc("/logout", logoutPostHandler)
+	http.HandleFunc("/save/", selectPostHandler)
+	http.HandleFunc("/Register", registerPostHandler)
+	http.HandleFunc("/PwReset", pwresetReqPostHandler)
+	http.HandleFunc("/Reset", pwresetPostHandler)
+
+	/* put css files in the resources directory
+	 * See http://stackoverflow.com/questions/13302020/rendering-css-in-a-go-web-application
+	 * and https://groups.google.com/forum/#!topic/golang-nuts/bStLPdIVM6w
+	 * for hiding contents of that directory  */
+	//	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
+
+	// Start the HTTPS server in a goroutine
+	go func() {
+		err := http.ListenAndServeTLS(":4430", "server.pem", "server.key", nil)
+		if err != nil {
+			log.Fatalf("ListenAndServeTLS error: %v", err)
+		}
+	}()
+
+	log.Println("Starting Web Server")
+
+	// Start the HTTP server and redirect all incoming connections to HTTPS
+	err := http.ListenAndServe(":8080", http.HandlerFunc(redirectToHttps))
+	if err != nil {
+		log.Fatalf("ListenAndServe error: %v", err)
+	}
 }

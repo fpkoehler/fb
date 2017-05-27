@@ -1,0 +1,86 @@
+/* *************************************
+ *  Used on the select page, each game floats
+ *  and can change color based upon the
+ *  pick and the game score.
+ * *************************************/
+.floating {
+    display: inline-block;
+    vertical-align:top;
+    margin: 10px;
+}
+
+.floating-green {
+    background-color: lightgreen;
+    display: inline-block;
+    vertical-align:top;
+    margin: 10px;
+}
+
+.floating-box {
+    display: inline-block;
+    vertical-align:top;
+    margin: 10px;
+    border: 3px solid #73AD21;
+}
+
+/* *************************************
+ *  Tables
+ * *************************************/
+table, th, td {
+    border: 1px solid black;
+    border-collapse: collapse;
+}
+th, td {
+    padding: 5px;
+    text-align: left;
+}
+
+/* *************************************
+ *  The horizontal menu strip
+ * *************************************/
+.menu_strip {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #333;
+}
+
+.menu_li {
+    float: left;
+}
+
+.menu_li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+}
+
+.menu_li_active {
+    float: left;
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    background-color: #4CAF50;
+}
+
+.menu_li_login {
+    float: right;
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+}
+
+.menu_li a:hover:not(.active) {
+    background-color: #111;
+}
+
+
+.active {
+    background-color: #4CAF50;
+}

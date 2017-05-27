@@ -800,45 +800,7 @@ func main() {
 
 	go updateGames()
 
-	/* handlers for GETs */
-	http.HandleFunc("/", loginGetHandler)
-	http.HandleFunc("/user", userGetHandler)
-	http.HandleFunc("/profile", profileGetHandler)
-	http.HandleFunc("/select/", selectGetHandler)
-	http.HandleFunc("/results/", resultGetHandler)
-	http.HandleFunc("/register", registerGetHandler)
-	http.HandleFunc("/pwreset", pwresetReqGetHandler)
-	http.HandleFunc("/reset", pwresetGetHandler)
-
-	/* handlers for POSTs */
-	http.HandleFunc("/login", loginPostHandler)
-	http.HandleFunc("/logout", logoutPostHandler)
-	http.HandleFunc("/save/", selectPostHandler)
-	http.HandleFunc("/Register", registerPostHandler)
-	http.HandleFunc("/PwReset", pwresetReqPostHandler)
-	http.HandleFunc("/Reset", pwresetPostHandler)
-
-	/* put css files in the resources directory
-	 * See http://stackoverflow.com/questions/13302020/rendering-css-in-a-go-web-application
-	 * and https://groups.google.com/forum/#!topic/golang-nuts/bStLPdIVM6w
-	 * for hiding contents of that directory  */
-	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
-
-	// Start the HTTPS server in a goroutine
-	go func() {
-		err := http.ListenAndServeTLS(":4430", "server.pem", "server.key", nil)
-		if err != nil {
-			log.Fatalf("ListenAndServeTLS error: %v", err)
-		}
-	}()
-
-	log.Println("Starting Web Server")
-
-	// Start the HTTP server and redirect all incoming connections to HTTPS
-	err = http.ListenAndServe(":8080", http.HandlerFunc(redirectToHttps))
-	if err != nil {
-		log.Fatalf("ListenAndServe error: %v", err)
-	}
+	webSrv()
 
 	log.Println("Program ended")
 }

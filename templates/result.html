@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FB Confidence Pool</title>
+<link rel="stylesheet" type="text/css" href="../../resources/styles.css">
+<script type="text/javascript" src="../../resources/sorttable.js"></script>
+</head>
+
+<body>
+<h1>FB Confidence Pool</h1>
+
+
+<ul class="menu_strip">
+  <li class="menu_li"><a href="/user">Home</a></li>
+  <li class="menu_li"><a href="/profile">Profile</a></li>
+  <li class="menu_li_active">Results Week {{$.UWeek}}</li>
+  <li class="menu_li" style="float:right"><a href="/logout">Logout</a></li>
+  <li class="menu_li_login">Hi {{.User}}</li>
+</ul>
+
+<p>NFL Week {{$.UWeek}}</p>
+
+<p><b>{{.Player}}</b> points this week {{$.Points}}</p>
+
+<div>
+ <table class="sortable">
+  <caption>Games Finished</caption>
+  <tr> <th>Visitor</th> <th>Home</th> <th>Pick</th> <th>Confidence</th> <th>Winner</th> <th>Points</th></tr>
+  {{range $index, $row := .Finished}}
+  <tr> <td>{{$row.TeamV}}</td> <td>{{$row.TeamH}}</td>  <td>{{$row.Pick}}</td> <td>{{$row.Confidence}}</td> <td>{{$row.Winner}}</td> <td>{{$row.Points}}</td> </tr>  
+  {{end}}
+ </table>
+</div>
+
+<br>
+
+<div>
+ <table class="sortable">
+  <caption>Games in Progress</caption>
+  <tr> <th>Time</th> <th>Visitor</th> <th>Home</th> <th>Pick</th> <th>Confidence</th> <th>Winning</th> <th>Points</th></tr>
+  {{range $index, $row := .InProgress}}
+  <tr> <td>{{$row.Time}}</td> <td>{{$row.TeamV}}</td> <td>{{$row.TeamH}}</td>  <td>{{$row.Pick}}</td> <td>{{$row.Confidence}}</td> <td>{{$row.Winner}}</td> <td>{{$row.Points}}</td> </tr>  
+  {{end}}
+ </table>
+</div>
+
+<br>
+
+<div>
+ <table class="sortable">
+  <caption>Games to be Played</caption>
+  <tr> <th>Time</th> <th>Visitor</th> <th>Home</th> <th>Pick</th> <th>Confidence</th> </tr>
+  {{range $index, $row := .Future}}
+  <tr> <td>{{$row.Time}}</td> <td>{{$row.TeamV}}</td> <td>{{$row.TeamH}}</td>  <td>{{$row.Pick}}</td> <td>{{$row.Confidence}}</td> </tr>  
+  {{end}}
+ </table>
+</div>
+
+<br>
+
+<div class="floating">
+ <table class="sortable">
+  <caption>Players</caption>
+  <tr> <th>Name</th> <th>Score</th> </tr>
+  {{range $index, $row := .Players}}
+  <tr> <td><a href="{{$row.URL}}">{{$row.User}}</a></td> <td>{{$row.Points}}</td> </tr>
+  {{end}}
+ </table>
+</div>
+
+</body>
+</html>

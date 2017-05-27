@@ -1,0 +1,4 @@
+$GOPATH/bin/rice embed-go
+go build
+
+GOOS=darwin GOARCH=386 go build

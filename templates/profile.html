@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FB Confidence Pool</title>
+<link rel="stylesheet" type="text/css" href="../../resources/styles.css">
+</head>
+
+<body>
+<h1>FB Confidence Pool</h1>
+
+<ul class="menu_strip">
+  <li class="menu_li"><a href="/user">Home</a></li>
+  <li class="menu_li_active">Profile</li>
+  <li class="menu_li" style="float:right"><a href="/logout">Logout</a></li>
+  <li class="menu_li_login">hi {{.Name}}</li>
+</ul>
+
+<div class="floating">
+<fieldset>
+<legend>Profile</legend>
+ <table>
+  <tr> <td>Nickname</td> <td>{{.Name}}</td>  </tr>
+  <tr> <td>email</td> <td>{{.Email}}</td></tr>
+  <tr> <td>Subscribe emails</td> <td>{{.Subscribe}} <a href="email_subscribe">Change?</a> </td>
+ </table>
+ <br>
+ <a href="update_password">Update Password</a>
+</fieldset>
+</div>
+
+</body>
+</html>

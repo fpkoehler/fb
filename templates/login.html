@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<title>FB Confidence Pool</title>
+<link rel="stylesheet" type="text/css" href="resources/styles.css">
+<script type="text/javascript" src="resources/sorttable.js"></script>
+</head>
+
+<body>
+<h1>FB Confidence Pool</h1>
+<p>Test your ability to pick the winners of
+ NFL games.  No point spreads, just the winner.  In addition to picking the winner, you specify a confidence level from 1 through 16 (if there are 16 games) and if your pick wins, your confidence level for that game is added to your week's score.</p>
+
+<div class="floating">
+ <b>Existing Members Login</b>
+ <form method="post" action="/login">
+    <label for="name">Email addr</label>
+    <input type="text" id="name" name="name">
+    <br>
+    <label for="password">Password&nbsp;&nbsp;</label>
+    <input type="password" id="password" name="password">
+    <br>
+    <button type="submit">Login</button>
+ </form>
+ <br>
+ <b>To Join, click <a href=register>register</a></b>
+ <br>
+ <b>Password reset, click <a href=pwreset>here</a></b>
+</div>
+
+<div class="floating">
+<fieldset>
+<legend>Standings</legend>
+ <table class="sortable">
+  <tr> <th>User</th> <th>Points</th> <th>Played</th> <th>Won</th> <th>Ave/Week</th></tr>
+  {{range $index, $srow := .Standings}}
+    <tr> <td>{{$srow.Name}}</td> <td>{{$srow.Total}}</td> <td>{{$srow.WeeksPlayed}}</td> <td>{{$srow.WeeksWon}}</td> <td>{{$srow.AvePerWeek}}</td> </tr>
+  {{end}}
+ </table>
+</fieldset>
+</div>
+
+</body>
+</html>
