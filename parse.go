@@ -47,8 +47,6 @@ func (m *ParseHTML) SeekTag(stopStrings ...string) bool {
 		case html.SelfClosingTagToken: // <tag/>
 		}
 	}
-
-	return false
 }
 
 func (m *ParseHTML) GetText() string {
@@ -95,6 +93,4 @@ func (m *ParseHTML) SeekBoldText() (string, bool) {
 		case html.SelfClosingTagToken: // <tag/>
 		}
 	}
-
-	return "", false
 }
