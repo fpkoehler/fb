@@ -95,7 +95,7 @@ func (a ByStandingRow) Less(i, j int) bool { return a[i].Total > a[j].Total }
 
 var options Options
 
-var season = Season{Year: 2016}
+var season = Season{Year: 2017}
 
 // will be indexed by user name
 var users map[string]*User
@@ -145,6 +145,7 @@ func init() {
 		"Kansas City Chiefs":   "Chiefs",
 		"Los Angeles":          "Rams",
 		"Los Angeles Rams":     "Rams",
+		"Los Angeles Chargers": "Chargers",
 		"Miami":                "Dolphins",
 		"Miami Dolphins":       "Dolphins",
 		"Minnesota":            "Vikings",
@@ -798,7 +799,7 @@ func main() {
 
 	updateUserScores()
 
-	go updateGames()
+//	go updateGames()
 
 	webSrv()
 
