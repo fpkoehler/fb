@@ -96,7 +96,7 @@ func (a ByStandingRow) Less(i, j int) bool { return a[i].Total > a[j].Total }
 
 var options Options
 
-var season = Season{Year: 2017}
+var season = Season{Year: 2016}
 
 // will be indexed by user name
 var users map[string]*User
@@ -615,16 +615,88 @@ func (a ByInt64) Less(i, j int) bool { return a[i] < a[j] }
 
 /*****************************************************************************/
 
-func getSchedule(week int, url string) {
-	var p ParseHTML
-	var dayStr string
+type gameSchPageIterator struct {
+	p      ParseHTML
+	game   Game
+	dayStr string
+}
+
+func (iter *gameSchPageIterator) Next() bool {
 	var timeStr string
 	var teamHStr string
 	var teamVStr string
 	var scoreVStr string
 	var scoreHStr string
 	var b bool
-	//	var stateStr string
+
+	if iter.p.SeekTag("divider", "left") == false {
+		return false
+	}
+
+	if strings.Compare("divider", iter.p.Tok.Attr[0].Val) == 0 {
+		iter.dayStr = iter.p.GetText()
+
+		iter.p.SeekTag("left") // advances to game status/time
+	}
+
+	scoreVStr = ""
+	scoreHStr = ""
+
+	timeStr = iter.p.GetText()
+
+	iter.p.SeekTag("left")
+	teamVStr = toTeam[iter.p.GetText()]
+
+	if strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT") {
+		scoreVStr, b = iter.p.SeekBoldText()
+		if !b {
+			fmt.Println("SeekBoldText() failed after teamVStr", teamVStr)
+			return false
+		}
+	}
+
+	iter.p.SeekTag("left")
+	teamHStr = toTeam[iter.p.GetText()]
+
+	if strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT") {
+		scoreHStr, b = iter.p.SeekBoldText()
+		if !b {
+			fmt.Println("SeekBoldText() failed after teamHStr", teamHStr)
+			return false
+		}
+	}
+
+	log.Println(teamVStr, scoreVStr, "vs", teamHStr, scoreHStr, "on", iter.dayStr, " ", timeStr)
+
+	var day Date
+	day.Set(iter.dayStr)
+
+	var gameStatus GameStatus
+	switch {
+	case strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT"):
+		gameStatus = Finished
+	case strings.Contains(timeStr, "AM") || strings.Contains(timeStr, "PM"):
+		gameStatus = Future
+	default:
+		gameStatus = InProgress
+	}
+
+	iter.game = Game{
+		TeamV:  teamVStr,
+		TeamH:  teamHStr,
+		ScoreV: scoreVStr,
+		ScoreH: scoreHStr,
+		Day:    day,
+		Time:   timeStr,
+		Status: gameStatus,
+	}
+
+	return true
+}
+
+/*****************************************************************************/
+
+func getSchedule(week int, url string) {
 
 	allGamesFinal := true
 	gamesInProgress := false
@@ -635,6 +707,8 @@ func getSchedule(week int, url string) {
 
 	log.Println("Getting games for week indx", week, "from", url, ":")
 
+	iter := gameSchPageIterator{}
+
 	if options.ScheduleFromWeb {
 		resp, err := http.Get(url)
 		if err != nil {
@@ -642,7 +716,7 @@ func getSchedule(week int, url string) {
 			return
 		}
 		defer resp.Body.Close()
-		p.Init(resp.Body)
+		iter.p.Init(resp.Body)
 	} else {
 		fileName := url
 		file, err := os.Open(fileName) // For read access.
@@ -651,70 +725,12 @@ func getSchedule(week int, url string) {
 			return
 		}
 		// TODO: defer closing file
-		p.Init(file)
+		iter.p.Init(file)
 	}
 
-	for p.SeekTag("divider", "left") {
-
-		if strings.Compare("divider", p.Tok.Attr[0].Val) == 0 {
-			dayStr = p.GetText()
-
-			p.SeekTag("left") // advances to game status/time
-		}
-
-		scoreVStr = ""
-		scoreHStr = ""
-
-		timeStr = p.GetText()
-
-		p.SeekTag("left")
-		teamVStr = toTeam[p.GetText()]
-
-		if strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT") {
-			scoreVStr, b = p.SeekBoldText()
-			if !b {
-				fmt.Println("SeekBoldText() failed after teamVStr", teamVStr)
-				return
-			}
-		}
-
-		p.SeekTag("left")
-		teamHStr = toTeam[p.GetText()]
-
-		if strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT") {
-			scoreHStr, b = p.SeekBoldText()
-			if !b {
-				fmt.Println("SeekBoldText() failed after teamHStr", teamHStr)
-				return
-			}
-		}
-
-		log.Println(teamVStr, scoreVStr, "vs", teamHStr, scoreHStr, "on", dayStr, " ", timeStr)
-
-		var day Date
-		day.Set(dayStr)
-
-		var gameStatus GameStatus
-		switch {
-		case strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT"):
-			gameStatus = Finished
-		case strings.Contains(timeStr, "AM") || strings.Contains(timeStr, "PM"):
-			gameStatus = Future
-		default:
-			gameStatus = InProgress
-		}
-
-		game := Game{
-			TeamV:  teamVStr,
-			TeamH:  teamHStr,
-			ScoreV: scoreVStr,
-			ScoreH: scoreHStr,
-			Day:    day,
-			Time:   timeStr,
-			Status: gameStatus,
-		}
-
-		switch gameStatus {
+	for iter.Next() {
+		game := iter.game
+		switch game.Status {
 		case Future:
 			allGamesFinal = false
 		case InProgress:
@@ -724,12 +740,12 @@ func getSchedule(week int, url string) {
 		}
 
 		/* Convenient way to store dates of games without duplicates */
-		gameTimes[day.Time().Unix()] = true
+		gameTimes[game.Day.Time().Unix()] = true
 
 		season.Week[week].Games = append(season.Week[week].Games, game)
 		gameIndex := len(season.Week[week].Games) - 1
-		season.Week[week].teamToGame[teamVStr] = &season.Week[week].Games[gameIndex]
-		season.Week[week].teamToGame[teamHStr] = &season.Week[week].Games[gameIndex]
+		season.Week[week].teamToGame[game.TeamV] = &season.Week[week].Games[gameIndex]
+		season.Week[week].teamToGame[game.TeamH] = &season.Week[week].Games[gameIndex]
 	}
 
 	/* Sort the start times by storing the keys (aka start times)
