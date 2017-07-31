@@ -43,10 +43,11 @@ type Game struct {
 }
 
 type Week struct {
-	Num       int
-	weekStart time.Time
-	weekEnd   time.Time
-	Games     []Game
+	Num        int
+	weekStart  time.Time
+	weekEnd    time.Time
+	Games      []Game
+	teamToGame map[string]*Game
 }
 
 type Season struct {
@@ -531,77 +532,75 @@ func updateGames() {
 
 /*****************************************************************************/
 
-func updateUserScores() {
-	for iw, _ := range season.Week {
-		log.Println("Updating user scores for week indx", iw)
-		for _, u := range users {
-			log.Println("---User", u.Email, "---")
-			totalPoints := 0
-			for _, s := range u.UserWeeks[iw].Selections {
-				var game Game
-				found := false
-				for _, game = range season.Week[iw].Games {
-					if s.Team == game.TeamH || s.Team == game.TeamV {
-						found = true
-						break
-					}
-				}
+func updateUserScoresWeekIndex(iw int) {
+	log.Println("Updating user scores for week indx", iw)
 
-				if !found {
-					_, _, line, _ := runtime.Caller(0)
-					fmt.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
-					log.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
+	for _, u := range users {
+		log.Println("---User", u.Email, "---")
+		totalPoints := 0
+		for _, s := range u.UserWeeks[iw].Selections {
+			game := season.Week[iw].teamToGame[s.Team]
+			if game == nil {
+				_, _, line, _ := runtime.Caller(0)
+				fmt.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
+				log.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
+				continue
+			}
+			if game.Status == InProgress || game.Status == Finished {
+				/* the game has started or finished */
+
+				/* get current score */
+				scoreV, err := strconv.Atoi(game.ScoreV)
+				if err != nil {
+					continue
+				}
+				scoreH, err := strconv.Atoi(game.ScoreH)
+				if err != nil {
 					continue
 				}
 
-				if game.Status == InProgress || game.Status == Finished {
-					/* the game has started or finished */
-
-					/* get current score */
-					scoreV, err := strconv.Atoi(game.ScoreV)
-					if err != nil {
-						continue
-					}
-					scoreH, err := strconv.Atoi(game.ScoreH)
-					if err != nil {
-						continue
-					}
-
-					/* team1 verb team1 user %d points */
-					points := 0
-					verb := "even with"
-					team1 := game.TeamH
-					team2 := game.TeamV
-					if scoreH != scoreV {
-						verb = "leads"
-					}
-					if scoreH > scoreV {
-						if s.Team == game.TeamH {
-							points = s.Confidence
-						}
-					}
-					if scoreH < scoreV {
-						team1 = game.TeamV
-						team2 = game.TeamH
-						if s.Team == game.TeamV {
-							points = s.Confidence
-						}
-					}
-
-					totalPoints += points
-
-					log.Printf("\t%s %s %s user %s %d points\n", team1, verb, team2, u.Email, points)
+				/* team1 verb team1 user %d points */
+				points := 0
+				verb := "even with"
+				team1 := game.TeamH
+				team2 := game.TeamV
+				if scoreH != scoreV {
+					verb = "leads"
 				}
-			}
+				if scoreH > scoreV {
+					if s.Team == game.TeamH {
+						points = s.Confidence
+					}
+				}
+				if scoreH < scoreV {
+					team1 = game.TeamV
+					team2 = game.TeamH
+					if s.Team == game.TeamV {
+						points = s.Confidence
+					}
+				}
 
-			if u.UserWeeks[iw].Points == totalPoints {
-				log.Printf("user %s weekIndx %d totalPoints %d unchanged\n", u.Email, iw, totalPoints)
-			} else {
-				u.UserWeeks[iw].Points = totalPoints
-				log.Printf("user %s weekIndx %d totalPoints %d\n", u.Email, iw, totalPoints)
-				writeUserFile(u)
+				totalPoints += points
+
+				log.Printf("\t%s %s %s user %s %d points\n", team1, verb, team2, u.Email, points)
 			}
 		}
+
+		if u.UserWeeks[iw].Points == totalPoints {
+			log.Printf("user %s weekIndx %d totalPoints %d unchanged\n", u.Email, iw, totalPoints)
+		} else {
+			u.UserWeeks[iw].Points = totalPoints
+			log.Printf("user %s weekIndx %d totalPoints %d\n", u.Email, iw, totalPoints)
+			writeUserFile(u)
+		}
+	}
+}
+
+/*****************************************************************************/
+
+func updateUserScores() {
+	for iw, _ := range season.Week {
+		updateUserScoresWeekIndex(iw)
 	}
 }
 
@@ -632,6 +631,7 @@ func getSchedule(week int, url string) {
 	gameTimes := make(map[int64]bool)
 
 	season.Week[week].Games = make([]Game, 0, 16)
+	season.Week[week].teamToGame = make(map[string]*Game)
 
 	log.Println("Getting games for week indx", week, "from", url, ":")
 
@@ -650,6 +650,7 @@ func getSchedule(week int, url string) {
 			log.Println("cannot open ", fileName)
 			return
 		}
+		// TODO: defer closing file
 		p.Init(file)
 	}
 
@@ -726,6 +727,9 @@ func getSchedule(week int, url string) {
 		gameTimes[day.Time().Unix()] = true
 
 		season.Week[week].Games = append(season.Week[week].Games, game)
+		gameIndex := len(season.Week[week].Games) - 1
+		season.Week[week].teamToGame[teamVStr] = &season.Week[week].Games[gameIndex]
+		season.Week[week].teamToGame[teamHStr] = &season.Week[week].Games[gameIndex]
 	}
 
 	/* Sort the start times by storing the keys (aka start times)
@@ -799,7 +803,7 @@ func main() {
 
 	updateUserScores()
 
-//	go updateGames()
+	//	go updateGames()
 
 	webSrv()
 
