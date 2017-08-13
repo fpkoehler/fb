@@ -32,6 +32,8 @@ const (
 	Finished
 )
 
+const numberOfWeeks = 5
+
 type Game struct {
 	TeamV  string
 	TeamH  string
@@ -43,15 +45,16 @@ type Game struct {
 }
 
 type Week struct {
-	Num       int
-	weekStart time.Time
-	weekEnd   time.Time
-	Games     []Game
+	Num        int
+	weekStart  time.Time
+	weekEnd    time.Time
+	Games      []Game
+	teamToGame map[string]*Game
 }
 
 type Season struct {
 	Year int
-	Week [17]Week
+	Week [numberOfWeeks]Week
 }
 
 type Selection struct {
@@ -143,7 +146,9 @@ func init() {
 		"Jacksonville Jaguars": "Jaguars",
 		"Kansas City":          "Chiefs",
 		"Kansas City Chiefs":   "Chiefs",
-		"Los Angeles":          "Rams",
+		"LA Chargers":          "Chargers",
+		"Los Angeles Chargers": "Chargers",
+		"LA Rams":              "Rams",
 		"Los Angeles Rams":     "Rams",
 		"Los Angeles Chargers": "Chargers",
 		"Miami":                "Dolphins",
@@ -311,94 +316,41 @@ func updateGames() {
 	for {
 		fmt.Println("updating games for week indx", iWeek, " @", time.Now())
 
-		var p ParseHTML
-		var dayStr string
-		var teamHStr string
-		var teamVStr string
-		var scoreVStr string
-		var scoreHStr string
-		var stateStr string
-
 		gamesInProgress := false
 		gameTimes := make(map[int64]bool)
 
+		iter := gameSchPageIterator{}
+
+		var err error
+		var file *os.File
+		var resp *http.Response
 		if options.UpdateFromWeb {
-			log.Println("Updating games for week indx", iWeek, "from", options.UpdateUrl, ":")
-			resp, err := http.Get(options.UpdateUrl)
+			url := fmt.Sprintf("%s%d", options.ScheduleUrl, iWeek+1)
+			log.Println("Updating games for week indx", iWeek, "from", url, ":")
+			resp, err = http.Get(url)
 			for err != nil {
 				log.Println("Error from http.Get, retry in 1 minute:", err.Error())
 				time.Sleep(1 * time.Minute)
-				resp, err = http.Get(options.UpdateUrl)
+				resp, err = http.Get(url)
 			}
-			defer resp.Body.Close() //TODO: should this be closed sooner?
-			p.Init(resp.Body)
+			iter.p.Init(resp.Body)
 		} else {
-			fileName := options.UpdateUrl
+			fileName := fmt.Sprintf("%s%d.html", options.ScheduleUrl, iWeek+1)
 			log.Println("Updating games for week indx", iWeek, "from", fileName, ":")
-			file, err := os.Open(fileName) // For read access.
-			defer file.Close()
+			file, err = os.Open(fileName) // For read access.
 			if err != nil {
 				log.Println("cannot open ", fileName)
 				return
 			}
-			p.Init(file)
+			iter.p.Init(file)
 		}
 
-		i := 0
-		for p.SeekTag("sblivegame") {
+		for iter.Next() {
+			game := iter.game
 
-			log.Println("-----------------")
-			p.SeekTag("twofifths fleft")
-			dayStr = p.GetText()
-			dayStr = fmt.Sprintf("%s/%d", dayStr, time.Now().Year())
-
-			var date Date
-			date.Set(dayStr)
-
-			if beforeIWeek(date) {
-				log.Println("Week mismatch, dayStr", dayStr, "iWeek start", season.Week[iWeek].weekStart)
-				break
-			}
-
-			p.SeekTag("twofifths fleft right")
-			stateStr = p.GetText()
-
-			var gameStatus GameStatus
-			switch {
-			case strings.Contains(stateStr, "FINAL") || strings.Contains(stateStr, "F/OT"):
-				gameStatus = Finished
-			case strings.Contains(stateStr, "AM") || strings.Contains(stateStr, "PM"):
-				gameStatus = Future
-			default:
-				gameStatus = InProgress
-			}
-
-			p.SeekTag("teamcol")
-			teamVStr = toTeam[p.GetText()]
-			p.SeekTag("scorecol")
-			scoreVStr = p.GetText()
-			log.Println(teamVStr, " ", scoreVStr)
-
-			p.SeekTag("teamcol")
-			teamHStr = toTeam[p.GetText()]
-			p.SeekTag("scorecol")
-			scoreHStr = p.GetText()
-			log.Println(teamHStr, " ", scoreHStr)
-			log.Println(stateStr)
-
-			game := Game{
-				TeamV:  teamVStr,
-				TeamH:  teamHStr,
-				Time:   stateStr,
-				Day:    date,
-				Status: gameStatus,
-				ScoreV: scoreVStr,
-				ScoreH: scoreHStr,
-			}
-
-			switch gameStatus {
+			switch game.Status {
 			case Future:
-				t := date.AddDayTime(stateStr)
+				t := game.Day.AddDayTime(game.Time)
 				fmt.Println("game starts", t.Format(time.UnixDate), "from now", t.Sub(time.Now()))
 				log.Println("game starts", t.Format(time.UnixDate), "from now", t.Sub(time.Now()))
 				/* store start time in a map. This is a convenient way to
@@ -409,83 +361,41 @@ func updateGames() {
 			case Finished:
 			}
 
-			// TODO: need to make sure we update the correct game
-			season.Week[iWeek].Games[i] = game
-
-			i++
-		}
-
-		/* if any game has started, for every user, compute score */
-		for _, u := range users {
-			log.Println("---User", u.Email, "---")
-			totalPoints := 0
-			for _, s := range u.UserWeeks[iWeek].Selections {
-				var game Game
-				found := false
-				for _, game = range season.Week[iWeek].Games {
-					if s.Team == game.TeamH || s.Team == game.TeamV {
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					_, _, line, _ := runtime.Caller(0)
-					fmt.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
-					log.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
-					continue
-				}
-
-				if game.Status == InProgress || game.Status == Finished {
-					/* the game has started or finished */
-
-					/* get current score */
-					scoreV, err := strconv.Atoi(game.ScoreV)
-					if err != nil {
-						continue
-					}
-					scoreH, err := strconv.Atoi(game.ScoreH)
-					if err != nil {
-						continue
-					}
-
-					/* team1 verb team1 user %d points */
-					points := 0
-					verb := "even with"
-					team1 := game.TeamH
-					team2 := game.TeamV
-					if scoreH != scoreV {
-						verb = "leads"
-					}
-					if scoreH > scoreV {
-						if s.Team == game.TeamH {
-							points = s.Confidence
-						}
-					}
-					if scoreH < scoreV {
-						team1 = game.TeamV
-						team2 = game.TeamH
-						if s.Team == game.TeamV {
-							points = s.Confidence
-						}
-					}
-
-					totalPoints += points
-
-					log.Printf("\t%s %s %s user %s %d points\n", team1, verb, team2, u.Email, points)
-				}
+			pGame := season.Week[iWeek].teamToGame[game.TeamV]
+			if pGame == nil {
+				_, _, line, _ := runtime.Caller(0)
+				fmt.Println("line", line, "Could not find game for team", game.TeamV)
+				log.Println("line", line, "Could not find game for team", game.TeamV)
+				continue
 			}
 
-			if u.UserWeeks[iWeek].Points == totalPoints {
-				log.Printf("user %s weekIndx %d totalPoints %d unchanged\n", u.Email, iWeek, totalPoints)
-			} else {
-				u.UserWeeks[iWeek].Points = totalPoints
-				log.Printf("user %s weekIndx %d totalPoints %d\n", u.Email, iWeek, totalPoints)
-				writeUserFile(u)
-			}
+			// Update the game in season.Week[iWeek].Games[]
+			*pGame = game
 		}
+
+		/* Done with parsing the page, a little cleanup */
+		if options.UpdateFromWeb {
+			resp.Body.Close()
+		} else {
+			file.Close()
+		}
+
+		updateUserScoresWeekIndex(iWeek)
 
 		/* Compute the next time to loop */
+
+		/* The schedule page often does not update the games
+		 * while they are in progress.  So while the games is
+		 * being played, the start time for the game is still
+		 * listed.  When the game is over, the "time" for the
+		 * game is changed to FINAL.
+		 *
+		 * So the strategy is to check back 3 hours after the
+		 * start of the game.  Then if a start time is earlier
+		 * then current time (the game(s) are in progress) check
+		 * back in 15 minutes.  If a start time is later, that
+		 * means there is another game starting later in the day,
+		 * so check back in 3 hours. */
 
 		/* Default is 8am the next day */
 		nextTime := time.Now().AddDate(0, 0, 1) // add one day
@@ -493,30 +403,38 @@ func updateGames() {
 		loc, _ := time.LoadLocation("America/Los_Angeles")
 		nextTime = time.Date(y, m, d, 8, 0, 0, 0, loc)
 
-		/* ... when is the next game time from now */
+		/* Get the earliest start time listed (if any) */
 		nowUnix := time.Now().Unix()
+		nextGameTodayStart := time.Time{} // zero
 		for k := range gameTimes {
-			if k < nowUnix {
-				/* The game has already started but the web
-				 * site might not have updated to reflect that yet.
-				 * This usually happens within the first few
-				 * minutes of a game.  So if k (the gameTime)
-				 * is within 30 minutes of now, set k=now+30m
-				 * so that we check back. */
-				if nowUnix-k < (30 * 60) {
-					/* the game already started, check back 30m from now */
-					k = nowUnix + (30 * 60)
+			if time.Unix(k, 0).YearDay() == time.Unix(nowUnix, 0).YearDay() {
+				/* game time is today */
+				if nextGameTodayStart.IsZero() {
+					nextGameTodayStart = time.Unix(k, 0)
+					continue
 				}
-			}
-
-			if k > nowUnix && k < nextTime.Unix() {
-				nextTime = time.Unix(k, 0)
+				if time.Unix(k, 0).Before(nextGameTodayStart) {
+					nextGameTodayStart = time.Unix(k, 0)
+				}
 			}
 		}
 
-		/* ... if games in progress, then in a few minutes */
+		if !nextGameTodayStart.IsZero() {
+			if nextGameTodayStart.Before(time.Now()) {
+				/* The game started earlier, so check back in 15 minutes */
+				log.Println("game started earlier:", nextGameTodayStart, "check back soon")
+				nextTime = time.Now().Add(15 * time.Minute)
+			} else {
+				/* Check back 3 hours after the start time */
+				log.Println("another game today starts", nextGameTodayStart)
+				nextTime = nextGameTodayStart.Add(3 * time.Hour)
+			}
+		}
+
+		/* In the rare cases where the schedule page shows in progress updates */
+		/* If games in progress, then in a few minutes */
 		if gamesInProgress {
-			nextTime = time.Now().Add(5 * time.Minute)
+			nextTime = time.Now().Add(30 * time.Minute)
 			log.Println("Games are in progress")
 		}
 
@@ -531,77 +449,75 @@ func updateGames() {
 
 /*****************************************************************************/
 
-func updateUserScores() {
-	for iw, _ := range season.Week {
-		log.Println("Updating user scores for week indx", iw)
-		for _, u := range users {
-			log.Println("---User", u.Email, "---")
-			totalPoints := 0
-			for _, s := range u.UserWeeks[iw].Selections {
-				var game Game
-				found := false
-				for _, game = range season.Week[iw].Games {
-					if s.Team == game.TeamH || s.Team == game.TeamV {
-						found = true
-						break
-					}
-				}
+func updateUserScoresWeekIndex(iw int) {
+	log.Println("Updating user scores for week indx", iw)
 
-				if !found {
-					_, _, line, _ := runtime.Caller(0)
-					fmt.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
-					log.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
+	for _, u := range users {
+		log.Println("---User", u.Email, "---")
+		totalPoints := 0
+		for _, s := range u.UserWeeks[iw].Selections {
+			game := season.Week[iw].teamToGame[s.Team]
+			if game == nil {
+				_, _, line, _ := runtime.Caller(0)
+				fmt.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
+				log.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
+				continue
+			}
+			if game.Status == InProgress || game.Status == Finished {
+				/* the game has started or finished */
+
+				/* get current score */
+				scoreV, err := strconv.Atoi(game.ScoreV)
+				if err != nil {
+					continue
+				}
+				scoreH, err := strconv.Atoi(game.ScoreH)
+				if err != nil {
 					continue
 				}
 
-				if game.Status == InProgress || game.Status == Finished {
-					/* the game has started or finished */
-
-					/* get current score */
-					scoreV, err := strconv.Atoi(game.ScoreV)
-					if err != nil {
-						continue
-					}
-					scoreH, err := strconv.Atoi(game.ScoreH)
-					if err != nil {
-						continue
-					}
-
-					/* team1 verb team1 user %d points */
-					points := 0
-					verb := "even with"
-					team1 := game.TeamH
-					team2 := game.TeamV
-					if scoreH != scoreV {
-						verb = "leads"
-					}
-					if scoreH > scoreV {
-						if s.Team == game.TeamH {
-							points = s.Confidence
-						}
-					}
-					if scoreH < scoreV {
-						team1 = game.TeamV
-						team2 = game.TeamH
-						if s.Team == game.TeamV {
-							points = s.Confidence
-						}
-					}
-
-					totalPoints += points
-
-					log.Printf("\t%s %s %s user %s %d points\n", team1, verb, team2, u.Email, points)
+				/* team1 verb team1 user %d points */
+				points := 0
+				verb := "even with"
+				team1 := game.TeamH
+				team2 := game.TeamV
+				if scoreH != scoreV {
+					verb = "leads"
 				}
-			}
+				if scoreH > scoreV {
+					if s.Team == game.TeamH {
+						points = s.Confidence
+					}
+				}
+				if scoreH < scoreV {
+					team1 = game.TeamV
+					team2 = game.TeamH
+					if s.Team == game.TeamV {
+						points = s.Confidence
+					}
+				}
 
-			if u.UserWeeks[iw].Points == totalPoints {
-				log.Printf("user %s weekIndx %d totalPoints %d unchanged\n", u.Email, iw, totalPoints)
-			} else {
-				u.UserWeeks[iw].Points = totalPoints
-				log.Printf("user %s weekIndx %d totalPoints %d\n", u.Email, iw, totalPoints)
-				writeUserFile(u)
+				totalPoints += points
+
+				log.Printf("\t%s %s %s user %s %d points\n", team1, verb, team2, u.Email, points)
 			}
 		}
+
+		if u.UserWeeks[iw].Points == totalPoints {
+			log.Printf("user %s weekIndx %d totalPoints %d unchanged\n", u.Email, iw, totalPoints)
+		} else {
+			u.UserWeeks[iw].Points = totalPoints
+			log.Printf("user %s weekIndx %d totalPoints %d\n", u.Email, iw, totalPoints)
+			writeUserFile(u)
+		}
+	}
+}
+
+/*****************************************************************************/
+
+func updateUserScores() {
+	for iw, _ := range season.Week {
+		updateUserScoresWeekIndex(iw)
 	}
 }
 
@@ -616,24 +532,99 @@ func (a ByInt64) Less(i, j int) bool { return a[i] < a[j] }
 
 /*****************************************************************************/
 
-func getSchedule(week int, url string) {
-	var p ParseHTML
-	var dayStr string
+type gameSchPageIterator struct {
+	p      ParseHTML
+	game   Game
+	dayStr string
+}
+
+func (iter *gameSchPageIterator) Next() bool {
 	var timeStr string
 	var teamHStr string
 	var teamVStr string
 	var scoreVStr string
 	var scoreHStr string
 	var b bool
-	//	var stateStr string
+
+	if iter.p.SeekTag("divider", "left") == false {
+		return false
+	}
+
+	if strings.Compare("divider", iter.p.Tok.Attr[0].Val) == 0 {
+		iter.dayStr = iter.p.GetText()
+
+		iter.p.SeekTag("left") // advances to game status/time
+	}
+
+	scoreVStr = ""
+	scoreHStr = ""
+
+	timeStr = iter.p.GetText()
+
+	iter.p.SeekTag("left")
+	teamVStr = toTeam[iter.p.GetText()]
+
+	if strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT") {
+		scoreVStr, b = iter.p.SeekBoldText()
+		if !b {
+			fmt.Println("SeekBoldText() failed after teamVStr", teamVStr)
+			return false
+		}
+	}
+
+	iter.p.SeekTag("left")
+	teamHStr = toTeam[iter.p.GetText()]
+
+	if strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT") {
+		scoreHStr, b = iter.p.SeekBoldText()
+		if !b {
+			fmt.Println("SeekBoldText() failed after teamHStr", teamHStr)
+			return false
+		}
+	}
+
+	log.Println(teamVStr, scoreVStr, "vs", teamHStr, scoreHStr, "on", iter.dayStr, " ", timeStr)
+
+	var day Date
+	day.Set(iter.dayStr)
+
+	var gameStatus GameStatus
+	switch {
+	case strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT"):
+		gameStatus = Finished
+	case strings.Contains(timeStr, "AM") || strings.Contains(timeStr, "PM"):
+		gameStatus = Future
+	default:
+		gameStatus = InProgress
+	}
+
+	iter.game = Game{
+		TeamV:  teamVStr,
+		TeamH:  teamHStr,
+		ScoreV: scoreVStr,
+		ScoreH: scoreHStr,
+		Day:    day,
+		Time:   timeStr,
+		Status: gameStatus,
+	}
+
+	return true
+}
+
+/*****************************************************************************/
+
+func getSchedule(week int, url string) {
 
 	allGamesFinal := true
 	gamesInProgress := false
 	gameTimes := make(map[int64]bool)
 
 	season.Week[week].Games = make([]Game, 0, 16)
+	season.Week[week].teamToGame = make(map[string]*Game)
 
 	log.Println("Getting games for week indx", week, "from", url, ":")
+
+	iter := gameSchPageIterator{}
 
 	if options.ScheduleFromWeb {
 		resp, err := http.Get(url)
@@ -642,7 +633,7 @@ func getSchedule(week int, url string) {
 			return
 		}
 		defer resp.Body.Close()
-		p.Init(resp.Body)
+		iter.p.Init(resp.Body)
 	} else {
 		fileName := url
 		file, err := os.Open(fileName) // For read access.
@@ -650,70 +641,13 @@ func getSchedule(week int, url string) {
 			log.Println("cannot open ", fileName)
 			return
 		}
-		p.Init(file)
+		defer file.Close()
+		iter.p.Init(file)
 	}
 
-	for p.SeekTag("divider", "left") {
-
-		if strings.Compare("divider", p.Tok.Attr[0].Val) == 0 {
-			dayStr = p.GetText()
-
-			p.SeekTag("left") // advances to game status/time
-		}
-
-		scoreVStr = ""
-		scoreHStr = ""
-
-		timeStr = p.GetText()
-
-		p.SeekTag("left")
-		teamVStr = toTeam[p.GetText()]
-
-		if strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT") {
-			scoreVStr, b = p.SeekBoldText()
-			if !b {
-				fmt.Println("SeekBoldText() failed after teamVStr", teamVStr)
-				return
-			}
-		}
-
-		p.SeekTag("left")
-		teamHStr = toTeam[p.GetText()]
-
-		if strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT") {
-			scoreHStr, b = p.SeekBoldText()
-			if !b {
-				fmt.Println("SeekBoldText() failed after teamHStr", teamHStr)
-				return
-			}
-		}
-
-		log.Println(teamVStr, scoreVStr, "vs", teamHStr, scoreHStr, "on", dayStr, " ", timeStr)
-
-		var day Date
-		day.Set(dayStr)
-
-		var gameStatus GameStatus
-		switch {
-		case strings.Contains(timeStr, "FINAL") || strings.Contains(timeStr, "F/OT"):
-			gameStatus = Finished
-		case strings.Contains(timeStr, "AM") || strings.Contains(timeStr, "PM"):
-			gameStatus = Future
-		default:
-			gameStatus = InProgress
-		}
-
-		game := Game{
-			TeamV:  teamVStr,
-			TeamH:  teamHStr,
-			ScoreV: scoreVStr,
-			ScoreH: scoreHStr,
-			Day:    day,
-			Time:   timeStr,
-			Status: gameStatus,
-		}
-
-		switch gameStatus {
+	for iter.Next() {
+		game := iter.game
+		switch game.Status {
 		case Future:
 			allGamesFinal = false
 		case InProgress:
@@ -723,9 +657,12 @@ func getSchedule(week int, url string) {
 		}
 
 		/* Convenient way to store dates of games without duplicates */
-		gameTimes[day.Time().Unix()] = true
+		gameTimes[game.Day.Time().Unix()] = true
 
 		season.Week[week].Games = append(season.Week[week].Games, game)
+		gameIndex := len(season.Week[week].Games) - 1
+		season.Week[week].teamToGame[game.TeamV] = &season.Week[week].Games[gameIndex]
+		season.Week[week].teamToGame[game.TeamH] = &season.Week[week].Games[gameIndex]
 	}
 
 	/* Sort the start times by storing the keys (aka start times)
@@ -781,7 +718,7 @@ func main() {
 
 	fmt.Println("Season", season.Year)
 
-	for week := 0; week < 17; week++ {
+	for week := 0; week < numberOfWeeks; week++ {
 		var s string
 		if options.ScheduleFromWeb {
 			s = fmt.Sprintf("%s%d", options.ScheduleUrl, week+1)

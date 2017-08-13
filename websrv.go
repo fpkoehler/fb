@@ -858,6 +858,16 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		if game.Status == Future {
+			gameTime := game.Day.AddDayTime(game.Time)
+			if when.After(gameTime) {
+				/* We have not updated the game status yet,
+				 * but we are past the start of the game.  */
+				log.Println("user", user.Name, "ignoring selection", game.TeamV, game.TeamH, "it started", gameTime)
+				continue
+			}
+		}
+
 		whoWins := r.FormValue(game.TeamV)
 		if whoWins == "" {
 			/* game not on form because it already started */

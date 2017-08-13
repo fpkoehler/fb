@@ -50,8 +50,8 @@ func writeUserFile(user *User) {
 /**********************************************************/
 
 func sendEmail(toUser string, subject string, body string) {
-	from := mail.Address{Name:"", Address:options.AdminEmail}
-	to := mail.Address{Name:"", Address:toUser}
+	from := mail.Address{Name: "", Address: options.AdminEmail}
+	to := mail.Address{Name: "", Address: toUser}
 
 	// Setup headers
 	headers := make(map[string]string)
