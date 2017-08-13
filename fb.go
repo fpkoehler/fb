@@ -150,7 +150,6 @@ func init() {
 		"Los Angeles Chargers": "Chargers",
 		"LA Rams":              "Rams",
 		"Los Angeles Rams":     "Rams",
-		"Los Angeles Chargers": "Chargers",
 		"Miami":                "Dolphins",
 		"Miami Dolphins":       "Dolphins",
 		"Minnesota":            "Vikings",
@@ -736,7 +735,7 @@ func main() {
 
 	updateUserScores()
 
-//	go updateGames()
+	go updateGames()
 
 	webSrv()
 
