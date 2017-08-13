@@ -319,22 +319,23 @@ func updateGames() {
 
 		iter := gameSchPageIterator{}
 
+		var err error
+		var file *os.File
+		var resp *http.Response
 		if options.UpdateFromWeb {
 			url := fmt.Sprintf("%s%d", options.ScheduleUrl, iWeek+1)
 			log.Println("Updating games for week indx", iWeek, "from", url, ":")
-			resp, err := http.Get(url)
+			resp, err = http.Get(url)
 			for err != nil {
 				log.Println("Error from http.Get, retry in 1 minute:", err.Error())
 				time.Sleep(1 * time.Minute)
 				resp, err = http.Get(url)
 			}
-			defer resp.Body.Close() //TODO: we did not close from last loop iteration
 			iter.p.Init(resp.Body)
 		} else {
 			fileName := fmt.Sprintf("%s%d.html", options.ScheduleUrl, iWeek+1)
 			log.Println("Updating games for week indx", iWeek, "from", fileName, ":")
-			file, err := os.Open(fileName) // For read access.
-			defer file.Close()
+			file, err = os.Open(fileName) // For read access.
 			if err != nil {
 				log.Println("cannot open ", fileName)
 				return
@@ -370,9 +371,29 @@ func updateGames() {
 			*pGame = game
 		}
 
+		/* Done with parsing the page, a little cleanup */
+		if options.UpdateFromWeb {
+			resp.Body.Close()
+		} else {
+			file.Close()
+		}
+
 		updateUserScoresWeekIndex(iWeek)
 
 		/* Compute the next time to loop */
+
+		/* The schedule page often does not update the games
+		 * while they are in progress.  So while the games is
+		 * being played, the start time for the game is still
+		 * listed.  When the game is over, the "time" for the
+		 * game is changed to FINAL.
+		 *
+		 * So the strategy is to check back 3 hours after the
+		 * start of the game.  Then if a start time is earlier
+		 * then current time (the game(s) are in progress) check
+		 * back in 15 minutes.  If a start time is later, that
+		 * means there is another game starting later in the day,
+		 * so check back in 3 hours. */
 
 		/* Default is 8am the next day */
 		nextTime := time.Now().AddDate(0, 0, 1) // add one day
@@ -380,30 +401,38 @@ func updateGames() {
 		loc, _ := time.LoadLocation("America/Los_Angeles")
 		nextTime = time.Date(y, m, d, 8, 0, 0, 0, loc)
 
-		/* ... when is the next game time from now */
+		/* Get the earliest start time listed (if any) */
 		nowUnix := time.Now().Unix()
+		nextGameTodayStart := time.Time{} // zero
 		for k := range gameTimes {
-			if k < nowUnix {
-				/* The game has already started but the web
-				 * site might not have updated to reflect that yet.
-				 * This usually happens within the first few
-				 * minutes of a game.  So if k (the gameTime)
-				 * is within 30 minutes of now, set k=now+30m
-				 * so that we check back. */
-				if nowUnix-k < (30 * 60) {
-					/* the game already started, check back 30m from now */
-					k = nowUnix + (30 * 60)
+			if time.Unix(k, 0).YearDay() == time.Unix(nowUnix, 0).YearDay() {
+				/* game time is today */
+				if nextGameTodayStart.IsZero() {
+					nextGameTodayStart = time.Unix(k, 0)
+					continue
 				}
-			}
-
-			if k > nowUnix && k < nextTime.Unix() {
-				nextTime = time.Unix(k, 0)
+				if time.Unix(k, 0).Before(nextGameTodayStart) {
+					nextGameTodayStart = time.Unix(k, 0)
+				}
 			}
 		}
 
-		/* ... if games in progress, then in a few minutes */
+		if !nextGameTodayStart.IsZero() {
+			if nextGameTodayStart.Before(time.Now()) {
+				/* The game started earlier, so check back in 15 minutes */
+				log.Println("game started earlier:", nextGameTodayStart, "check back soon")
+				nextTime = time.Now().Add(15 * time.Minute)
+			} else {
+				/* Check back 3 hours after the start time */
+				log.Println("another game today starts", nextGameTodayStart)
+				nextTime = nextGameTodayStart.Add(3 * time.Hour)
+			}
+		}
+
+		/* In the rare cases where the schedule page shows in progress updates */
+		/* If games in progress, then in a few minutes */
 		if gamesInProgress {
-			nextTime = time.Now().Add(5 * time.Minute)
+			nextTime = time.Now().Add(30 * time.Minute)
 			log.Println("Games are in progress")
 		}
 
