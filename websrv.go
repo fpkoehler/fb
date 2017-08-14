@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/md5"
+	"crypto/tls"
 	"fmt"
 	"html/template"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/GeertJohan/go.rice"
+	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/html"
 )
 
@@ -968,7 +970,40 @@ func webSrv() {
 
 	// Start the HTTPS server in a goroutine
 	go func() {
-		err := http.ListenAndServeTLS(":4430", "server.pem", "server.key", nil)
+		/* Using Let's Encrypt (https://letsencrypt.org/)
+		 * This is supported in Go's experimental autocert package */
+
+		m := autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(options.HostWhiteList),
+			Cache:      autocert.DirCache("./certCache"),
+			Email:      options.AdminEmail,
+		}
+
+		/* When we are not in the HostWhitelist, we want to defer to the
+		 * self-signed certs server.{pem,key}.  If GetCertificate returns nil,
+		 * then the certificate specified in ListenAndServeTLS() will be used
+		 * (assuming tls.Config.NameToCertificate is nil).
+		 *
+		 * So given all of that, we have this wrapper function which calls
+		 * the autocert manager's GetCertificate and if that errors, we
+		 * return nil, thus allowing http.TLS to use the specified self-
+		 * signed certificates */
+		getCert := func(hello *tls.ClientHelloInfo) (cert *tls.Certificate, err error) {
+			cert, err = m.GetCertificate(hello)
+			if err != nil {
+				return nil, nil
+			}
+			return cert, err
+		}
+
+		s := &http.Server{
+			//Addr:      ":https",
+			Addr:      ":4430",
+			TLSConfig: &tls.Config{GetCertificate: getCert},
+		}
+
+		err := s.ListenAndServeTLS("server.pem", "server.key")
 		if err != nil {
 			log.Fatalf("ListenAndServeTLS error: %v", err)
 		}

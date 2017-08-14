@@ -20,6 +20,7 @@ type Options struct {
 	ScheduleUrl     string
 	UpdateUrl       string
 	PwRecoverSecret string
+	HostWhiteList   string
 	AdminEmail      string
 	AdminEmailPw    string
 }
