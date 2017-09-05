@@ -20,6 +20,7 @@ type Options struct {
 	ScheduleUrl     string
 	UpdateUrl       string
 	PwRecoverSecret string
+	HostWhiteList   string
 	AdminEmail      string
 	AdminEmailPw    string
 }
@@ -32,7 +33,7 @@ const (
 	Finished
 )
 
-const numberOfWeeks = 5
+const numberOfWeeks = 17
 
 type Game struct {
 	TeamV  string

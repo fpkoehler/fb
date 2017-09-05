@@ -20,6 +20,7 @@ func optionsFromFile() Options {
 	//  "RedirectUrl":"https://localhost:4430",
 	//  "ScheduleUrl":"schedules/2016regular",
 	//  "UpdateUrl":"gameTest1.html",
+	//  "HostWhiteList":"myfbpool.com",
 	//  "PwRecoverSecret":"Secret Phrase",
 	//	"AdminEmail" : "fred@foo.com",
 	//	"AdminEmailPw" : "yabadabadoo"
