@@ -33,7 +33,7 @@ const (
 	Finished
 )
 
-const numberOfWeeks = 5
+const numberOfWeeks = 17
 
 type Game struct {
 	TeamV  string
