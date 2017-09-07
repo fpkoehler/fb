@@ -961,10 +961,6 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("selectPostHandler for user", user.Email)
 
-	r.ParseForm()
-	log.Println(r.Form)
-	return
-
 	/* path will look something like /save/1
 	 * Extract the number */
 	week, err := strconv.Atoi(strings.Trim(r.URL.Path, "/save/"))
