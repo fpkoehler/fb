@@ -1038,8 +1038,9 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/* Make sure confidence values are not repeated */
-	//	validArray := make([]string, len(user.UserWeeks[week].Selections)+1)
-	validArray := make([]string, len(season.Week[week].Games)+1)
+	/* 16 is the max confidence values even if there are less than 16 games.
+	 * Use range 1..16 in this array */
+	validArray := make([]string, 16+1)
 	log.Println(user.UserWeeks[week].Selections)
 	for _, s := range user.UserWeeks[week].Selections {
 		if validArray[s.Confidence] == "" {
