@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>FB Confidence Pool</title>
 <link rel="stylesheet" type="text/css" href="../../resources/styles.css">
+<script type="text/javascript" src="../../resources/sorttable.js?version=2"></script>
 <script>
 function allowDrop(ev) {
     ev.preventDefault();
@@ -32,18 +33,18 @@ function drop(ev) {
         /* bubble down */
         for (i = sIndex; i < tIndex; i++) {
             rows[i].parentNode.insertBefore(rows[i+1], rows[i]);
-            var tmp = rows[i].cells[0].innerHTML;
-            rows[i].cells[0].innerHTML = rows[i+1].cells[0].innerHTML;
-            rows[i+1].cells[0].innerHTML = tmp;
+            var tmp = rows[i].cells[0].children[0].value;
+            rows[i].cells[0].children[0].value = rows[i+1].cells[0].children[0].value;
+            rows[i+1].cells[0].children[0].value = tmp;
         }
     }
     if (sIndex > tIndex) {
         /* bubble up */
         for (i = sIndex-1; i >= tIndex; i--) {
             rows[i].parentNode.insertBefore(rows[i+1], rows[i]);
-            var tmp = rows[i].cells[0].innerHTML;
-            rows[i].cells[0].innerHTML = rows[i+1].cells[0].innerHTML;
-            rows[i+1].cells[0].innerHTML = tmp;
+            var tmp = rows[i].cells[0].children[0].value;
+            rows[i].cells[0].children[0].value = rows[i+1].cells[0].children[0].value;
+            rows[i+1].cells[0].children[0].value = tmp;
         }
     } 
 }
@@ -72,7 +73,7 @@ function drop(ev) {
 
 <form action="/save/{{$.Week}}" method="POST">
 <div><input type="submit" value="Save"></div>
-<table id="selectTable">
+<table class="sortable" id="selectTable">
 
   <tr>
    <th>Confidence</th>
