@@ -723,6 +723,8 @@ func selectGetHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("selectGetHandler for user", user.Email, "#selections for week", week, len(user.UserWeeks[week].Selections))
 	}
 
+	numGames := len(season.Week[week].Games)
+
 	/* create an anonymous struct to pass to ExecuteTemplate */
 	/* http://julianyap.com/2013/09/23/using-anonymous-structs-to-pass-data-to-templates-in-golang.html */
 	data := struct {
@@ -738,13 +740,13 @@ func selectGetHandler(w http.ResponseWriter, r *http.Request) {
 		Week:     week,
 		UWeek:    week + 1,
 		Points:   user.UserWeeks[week].Points,
-		NumGames: len(season.Week[week].Games),
+		NumGames: numGames,
 	}
 
-	data.Games = make([]UserGameTmpl, 0, len(season.Week[week].Games))
-	data.Started = make([]UserGameTmpl, 0, len(season.Week[week].Games))
+	data.Games = make([]UserGameTmpl, 0, numGames)
+	data.Started = make([]UserGameTmpl, 0, numGames)
 	for indx, game := range season.Week[week].Games {
-		confidence := indx + 1
+		confidence := indx + 16 - numGames + 1
 		checkV := "checked"
 		teamSel := game.TeamV
 		checkH := ""
@@ -768,7 +770,7 @@ func selectGetHandler(w http.ResponseWriter, r *http.Request) {
 
 		if pSelection == nil {
 			if game.Status == Future {
-				confidence = indx + 1
+				confidence = indx + 16 - numGames + 1
 			} else {
 				confidence = 0
 				teamSel = "--"
@@ -847,6 +849,8 @@ func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("selectGetHandler for user", user.Email, "#selections for week", week, len(user.UserWeeks[week].Selections))
 	}
 
+	numGames := len(season.Week[week].Games)
+
 	/* create an anonymous struct to pass to ExecuteTemplate */
 	/* http://julianyap.com/2013/09/23/using-anonymous-structs-to-pass-data-to-templates-in-golang.html */
 	data := struct {
@@ -862,13 +866,13 @@ func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
 		Week:     week,
 		UWeek:    week + 1,
 		Points:   user.UserWeeks[week].Points,
-		NumGames: len(season.Week[week].Games),
+		NumGames: numGames,
 	}
 
-	data.Games = make([]UserGameTmpl, 0, len(season.Week[week].Games))
-	data.Started = make([]UserGameTmpl, 0, len(season.Week[week].Games))
+	data.Games = make([]UserGameTmpl, 0, numGames)
+	data.Started = make([]UserGameTmpl, 0, numGames)
 	for indx, game := range season.Week[week].Games {
-		confidence := indx + 1
+		confidence := indx + 16 - numGames + 1
 		checkV := "checked"
 		teamSel := game.TeamV
 		checkH := ""
@@ -892,7 +896,7 @@ func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
 
 		if pSelection == nil {
 			if game.Status == Future {
-				confidence = indx + 1
+				confidence = indx + 16 - numGames + 1
 			} else {
 				confidence = 0
 				teamSel = "--"
