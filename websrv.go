@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -823,6 +824,14 @@ func selectGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/* For sorting the data.Games, note we want
+ * ascending order, so "Less" actually returns greater */
+type ByConfidence []UserGameTmpl
+
+func (a ByConfidence) Len() int           { return len(a) }
+func (a ByConfidence) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByConfidence) Less(i, j int) bool { return a[i].Confidence > a[j].Confidence }
+
 func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
 	userName := getUserName(r)
 	if userName == "" {
@@ -943,6 +952,8 @@ func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	sort.Sort(ByConfidence(data.Games))
+
 	err = templates.ExecuteTemplate(w, "selectDnD.html", &data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -964,6 +975,9 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("selectPostHandler for user", user.Email)
+
+//	r.ParseForm()
+//	log.Println(r.Form)
 
 	/* path will look something like /save/1
 	 * Extract the number */
