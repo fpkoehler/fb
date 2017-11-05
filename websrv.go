@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -823,6 +824,142 @@ func selectGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/* For sorting the data.Games, note we want
+ * ascending order, so "Less" actually returns greater */
+type ByConfidence []UserGameTmpl
+
+func (a ByConfidence) Len() int           { return len(a) }
+func (a ByConfidence) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByConfidence) Less(i, j int) bool { return a[i].Confidence > a[j].Confidence }
+
+func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
+	userName := getUserName(r)
+	if userName == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	user, ok := users[userName]
+	if !ok {
+		http.Error(w, "no user for "+userName, http.StatusInternalServerError)
+		return
+	}
+	/* path will look something like /selectDnD/1
+	 * Extract the number */
+	week, err := strconv.Atoi(strings.Trim(r.URL.Path, "/selectDnD/"))
+	if err != nil {
+		log.Println("user", user, "selected", r.URL.Path, "does not exist")
+		http.Error(w, "user "+userName+" "+r.URL.Path+" does not exist", http.StatusInternalServerError)
+		return
+	}
+	if user.UserWeeks[week].Selections == nil {
+		log.Println("selectGetHandler for user", user.Email, "no selections for week", week)
+	} else {
+		log.Println("selectGetHandler for user", user.Email, "#selections for week", week, len(user.UserWeeks[week].Selections))
+	}
+
+	numGames := len(season.Week[week].Games)
+
+	/* create an anonymous struct to pass to ExecuteTemplate */
+	/* http://julianyap.com/2013/09/23/using-anonymous-structs-to-pass-data-to-templates-in-golang.html */
+	data := struct {
+		User     string
+		Week     int
+		UWeek    int
+		Points   int // TODO: is this being used?
+		NumGames int
+		Games    []UserGameTmpl
+		Started  []UserGameTmpl
+	}{
+		User:     user.Name,
+		Week:     week,
+		UWeek:    week + 1,
+		Points:   user.UserWeeks[week].Points,
+		NumGames: numGames,
+	}
+
+	data.Games = make([]UserGameTmpl, 0, numGames)
+	data.Started = make([]UserGameTmpl, 0, numGames)
+	for indx, game := range season.Week[week].Games {
+		confidence := indx + 16 - numGames + 1
+		checkV := "checked"
+		teamSel := game.TeamV
+		checkH := ""
+		when := ""
+		css := "floating"
+		status := game.Time
+
+		if game.Status == Future {
+			status = game.Day.AddDayTime(game.Time).Format("Mon Jan _2 3:04pm MST")
+		}
+
+		/* see if the user already made a selection for this game */
+		var pSelection *Selection
+		pSelection = nil
+		for is, s := range user.UserWeeks[week].Selections {
+			if s.Team == game.TeamV || s.Team == game.TeamH {
+				pSelection = &user.UserWeeks[week].Selections[is]
+				break
+			}
+		}
+
+		if pSelection == nil {
+			if game.Status == Future {
+				confidence = indx + 16 - numGames + 1
+			} else {
+				confidence = 0
+				teamSel = "--"
+			}
+		} else {
+			confidence = pSelection.Confidence
+
+			/* Convert the time string in the selection to a "time", then format it.
+			 * The first parameter to the Parse method is from https://golang.org/pkg/time/#Time.String */
+			t, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", pSelection.When)
+			if err != nil {
+				log.Println("user", user.Email, "week", week, "selection", indx,
+					"timeStr", pSelection.When, ":", err.Error())
+			} else {
+				when = t.Format("Mon Jan _2 3:04:05PM MST 2006")
+			}
+
+			if pSelection.Team == game.TeamH {
+				checkV = ""
+				checkH = "checked"
+				teamSel = game.TeamH
+			}
+		}
+
+		u := UserGameTmpl{
+			Num:        indx + 1,
+			TeamV:      game.TeamV,
+			TeamH:      game.TeamH,
+			ScoreV:     game.ScoreV,
+			ScoreH:     game.ScoreH,
+			CheckedV:   checkV,
+			CheckedH:   checkH,
+			TeamSel:    teamSel,
+			Confidence: confidence,
+			When:       when,
+			Status:     status,
+			CSS:        css, // not used anymore
+		}
+
+		if game.Status == Future {
+			data.Games = append(data.Games, u)
+		} else {
+			data.Started = append(data.Started, u)
+		}
+	}
+
+	sort.Sort(ByConfidence(data.Games))
+
+	err = templates.ExecuteTemplate(w, "selectDnD.html", &data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("selectPost URL", r.URL.Path)
 
@@ -838,6 +975,9 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("selectPostHandler for user", user.Email)
+
+//	r.ParseForm()
+//	log.Println(r.Form)
 
 	/* path will look something like /save/1
 	 * Extract the number */
@@ -916,6 +1056,8 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/* Make sure confidence values are not repeated */
+	/* 16 is the max confidence values even if there are less than 16 games.
+	 * Use range 1..16 in this array */
 	validArray := make([]string, 16+1)
 	log.Println(user.UserWeeks[week].Selections)
 	for _, s := range user.UserWeeks[week].Selections {
@@ -950,6 +1092,7 @@ func webSrv() {
 	http.HandleFunc("/user", userGetHandler)
 	http.HandleFunc("/profile", profileGetHandler)
 	http.HandleFunc("/select/", selectGetHandler)
+	http.HandleFunc("/selectDnD/", selectDnDGetHandler)
 	http.HandleFunc("/results/", resultGetHandler)
 	http.HandleFunc("/register", registerGetHandler)
 	http.HandleFunc("/pwreset", pwresetReqGetHandler)

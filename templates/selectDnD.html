@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FB Confidence Pool</title>
+<link rel="stylesheet" type="text/css" href="../../resources/styles.css">
+<script type="text/javascript" src="../../resources/sorttable.js?version=2"></script>
+<script>
+function allowDrop(ev) {
+    ev.preventDefault();
+}
+
+function drag(ev) {
+    ev.dataTransfer.setData("text", ev.target.rowIndex);
+}
+
+function drop(ev) {
+    ev.preventDefault();
+    var table = document.getElementById("selectTable");
+    var rows = table.getElementsByTagName("TR");
+
+    var sIndex = ev.dataTransfer.getData("text");
+    var tCell = ev.target;  // target cell, for some reason a TD rather than TR
+    var tRow = tCell.parentNode; // get target row
+    var tIndex = tRow.rowIndex;
+
+    /* make sure they are numbers not strings */
+    sIndex = Number(sIndex);
+    tIndex = Number(tIndex);
+
+    var i;
+    if (tIndex > sIndex) {
+        /* bubble down */
+        for (i = sIndex; i < tIndex; i++) {
+            rows[i].parentNode.insertBefore(rows[i+1], rows[i]);
+            var tmp = rows[i].cells[0].children[0].value;
+            rows[i].cells[0].children[0].value = rows[i+1].cells[0].children[0].value;
+            rows[i+1].cells[0].children[0].value = tmp;
+        }
+    }
+    if (sIndex > tIndex) {
+        /* bubble up */
+        for (i = sIndex-1; i >= tIndex; i--) {
+            rows[i].parentNode.insertBefore(rows[i+1], rows[i]);
+            var tmp = rows[i].cells[0].children[0].value;
+            rows[i].cells[0].children[0].value = rows[i+1].cells[0].children[0].value;
+            rows[i+1].cells[0].children[0].value = tmp;
+        }
+    } 
+}
+</script>
+</head>
+
+<body>
+<h1>FB Confidence Pool</h1>
+
+
+<ul class="menu_strip">
+  <li class="menu_li"><a href="/user">Home</a></li>
+  <li class="menu_li"><a href="/profile">Profile</a></li>
+  <li class="menu_li_active">Week {{$.UWeek}}</li>
+  <li class="menu_li" style="float:right"><a href="/logout">Logout</a></li>
+  <li class="menu_li_login">Hi {{.User}}</li>
+</ul>
+
+<h2>Enter Picks and Confidence Level</h2>
+<ul>
+<li>Select winner of each game</li>
+<li>Drag and drop rows up or down to change confidence levels</li>
+</ul>
+
+<p>NFL Week {{$.UWeek}}</p>
+
+<form action="/save/{{$.Week}}" method="POST">
+<div><input type="submit" value="Save"></div>
+<table class="sortable" id="selectTable">
+
+  <tr>
+   <th>Confidence</th>
+   <th class="sorttable_nosort">Game Status</th>
+   <th class="sorttable_nosort">Teams</th>
+  </tr>
+
+  {{range $index, $game := .Games}}
+  <tr ondrop="drop(event)" ondragover="allowDrop(event)" draggable="true" ondragstart="drag(event)">
+   <td><input type="number" name="confidence{{$game.TeamV}}" value={{$game.Confidence}} readonly></td>
+   <td>{{$game.Status}}</td>
+   <td><input type="radio" name="{{$game.TeamV}}" value="away" {{$game.CheckedV}}>{{$game.TeamV}} vs 
+       <input type="radio" name="{{$game.TeamV}}" value="home" {{$game.CheckedH}}>{{$game.TeamH}}</td>
+  </tr>
+  {{end}}
+
+</table>
+
+<div><input type="submit" value="Save"></div>
+</form> 
+
+<div class="floating">
+ <table class="sortable">
+  <caption>Games Started/Finished</caption>
+  <tr> <th>Visitor</th> <th>Home</th> <th>Pick</th> <th>Confidence</th> <th>Status</th> <th>Score</th> </tr>
+  {{range $index, $row := .Started}}
+  <tr> <td>{{$row.TeamV}}</td> <td>{{$row.TeamH}}</td>  <td>{{$row.TeamSel}}</td> <td>{{$row.Confidence}}</td> <td>{{$row.Status}}</td> <td>{{$row.ScoreV}} to {{$row.ScoreH}}</td> </tr>  
+  {{end}}
+ </table>
+</div>
+
+</body>
+</html>
