@@ -975,9 +975,10 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("selectPostHandler for user", user.Email)
+	log.Println(r.Header)
 
-//	r.ParseForm()
-//	log.Println(r.Form)
+	//	r.ParseForm()
+	//	log.Println(r.Form)
 
 	/* path will look something like /save/1
 	 * Extract the number */
@@ -1061,6 +1062,12 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 	validArray := make([]string, 16+1)
 	log.Println(user.UserWeeks[week].Selections)
 	for _, s := range user.UserWeeks[week].Selections {
+		if s.Confidence > 16 {
+			log.Println("Error: user", user, "selection", s.Team, "over confidence value:", s.Confidence)
+			errorPage(w, "Confidence value of %d for %s can not be greater than 16\n",
+				s.Confidence, s.Team)
+			return
+		}
 		if validArray[s.Confidence] == "" {
 			validArray[s.Confidence] = s.Team
 		} else {
