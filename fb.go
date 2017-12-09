@@ -67,6 +67,7 @@ type Selection struct {
 type UserWeek struct {
 	Num        int `xml:"Week,attr"`
 	Points     int
+	GoodPicks  int
 	Selections []Selection
 }
 
@@ -85,6 +86,7 @@ type StandingRow struct {
 	WeeksPlayed int
 	WeeksWon    int
 	AvePerWeek  string
+	GoodPicks   int
 }
 
 /* For sorting the standings, note we want
@@ -259,11 +261,13 @@ func getStandings() []StandingRow {
 
 	for _, u := range users {
 		weeksWon := 0
+		goodPicks := 0
 		weeksPlayed := 0
 		totalForUser := 0
 		aveScoreStr := "0.0"
 
 		for i := 0; i < lastIWeek; i++ {
+			goodPicks += u.UserWeeks[i].GoodPicks
 			totalForUser += u.UserWeeks[i].Points
 			if u.UserWeeks[i].Points == highScore[i] {
 				weeksWon++
@@ -278,7 +282,14 @@ func getStandings() []StandingRow {
 			aveScoreStr = strconv.FormatFloat(aveScore, 'f', 1, 32)
 		}
 
-		x := StandingRow{Name: u.Name, Total: totalForUser, WeeksPlayed: weeksPlayed, WeeksWon: weeksWon, AvePerWeek: aveScoreStr}
+		x := StandingRow{
+			Name:        u.Name,
+			Total:       totalForUser,
+			WeeksPlayed: weeksPlayed,
+			WeeksWon:    weeksWon,
+			AvePerWeek:  aveScoreStr,
+			GoodPicks:   goodPicks,
+		}
 		standings = append(standings, x)
 	}
 
@@ -454,6 +465,7 @@ func updateUserScoresWeekIndex(iw int) {
 
 	for _, u := range users {
 		log.Println("---User", u.Email, "---")
+		goodPicks := 0
 		totalPoints := 0
 		for _, s := range u.UserWeeks[iw].Selections {
 			game := season.Week[iw].teamToGame[s.Team]
@@ -498,16 +510,20 @@ func updateUserScoresWeekIndex(iw int) {
 				}
 
 				totalPoints += points
+				if points > 0 {
+					goodPicks++
+				}
 
 				log.Printf("\t%s %s %s user %s %d points\n", team1, verb, team2, u.Email, points)
 			}
 		}
 
+		u.UserWeeks[iw].GoodPicks = goodPicks
 		if u.UserWeeks[iw].Points == totalPoints {
 			log.Printf("user %s weekIndx %d totalPoints %d unchanged\n", u.Email, iw, totalPoints)
 		} else {
 			u.UserWeeks[iw].Points = totalPoints
-			log.Printf("user %s weekIndx %d totalPoints %d\n", u.Email, iw, totalPoints)
+			log.Printf("user %s weekIndx %d totalPoints %d goodPicks %d\n", u.Email, iw, totalPoints, goodPicks)
 			writeUserFile(u)
 		}
 	}
