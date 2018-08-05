@@ -683,6 +683,146 @@ func resultGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type TeamConfidence struct {
+	Team       string
+	Confidence int
+}
+
+type ByTConfidence []TeamConfidence
+
+func (a ByTConfidence) Len() int           { return len(a) }
+func (a ByTConfidence) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByTConfidence) Less(i, j int) bool { return a[i].Confidence > a[j].Confidence }
+
+func gamesWonByUser(userName string) int {
+	gamesWon := 0
+	player, ok := users[userName]
+	if !ok {
+		log.Println("no player for", userName)
+		return 0
+	}
+
+	for iw := 0; iw < numberOfWeeks; iw++ {
+		for _, s := range player.UserWeeks[iw].Selections {
+			var game Game
+			found := false
+			for _, game = range season.Week[iw].Games {
+				if s.Team == game.TeamH || s.Team == game.TeamV {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				log.Println("Results game not found for weekIndx", iw, "selection", s)
+				continue
+			}
+
+			winner := "tie"
+
+			if game.Status == Finished {
+				/* get current score */
+				scoreV, err := strconv.Atoi(game.ScoreV)
+				if err != nil {
+					continue
+				}
+				scoreH, err := strconv.Atoi(game.ScoreH)
+				if err != nil {
+					continue
+				}
+
+				if scoreH > scoreV {
+					winner = game.TeamH
+				}
+
+				if scoreH < scoreV {
+					winner = game.TeamV
+				}
+
+				if s.Team == winner {
+					gamesWon++
+				}
+			}
+		}
+	}
+	return gamesWon
+}
+
+func analyzeWeek(w http.ResponseWriter, weekIndex int) {
+	fmt.Fprintln(w, "analyzeWeek", weekIndex)
+
+	teams := make(map[string]int)
+
+	for _, user := range users {
+		for _, selection := range user.UserWeeks[weekIndex].Selections {
+			teams[selection.Team] += selection.Confidence
+		}
+	}
+
+	for _, player := range users {
+		for _, s := range player.UserWeeks[weekIndex].Selections {
+			var game Game
+			found := false
+			for _, game = range season.Week[weekIndex].Games {
+				if s.Team == game.TeamH || s.Team == game.TeamV {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				log.Println("Results game not found for weekIndx", weekIndex, "selection", s)
+				continue
+			}
+
+			aveConfidence := float32(teams[s.Team]) / float32(len(users))
+			fmt.Fprintln(w, player.Name, s.Team, s.Confidence, aveConfidence)
+		}
+	}
+}
+
+func statsGetHandler(w http.ResponseWriter, r *http.Request) {
+	userName := getUserName(r)
+	if userName == "" {
+		http.Error(w, "no user logged in", http.StatusInternalServerError)
+		return
+	}
+
+	_, ok := users[userName]
+	if !ok {
+		http.Error(w, "no user for "+userName, http.StatusInternalServerError)
+		return
+	}
+
+	f := func(c rune) bool { return c == '/' }
+	fields := strings.FieldsFunc(html.EscapeString(r.URL.Path), f)
+	fmt.Fprintln(w, fields)
+
+	analyzeWeek(w, 0)
+
+	teams := make(map[string]int)
+
+	for userName, user := range users {
+		fmt.Fprintln(w, userName, gamesWonByUser(userName))
+		for _, userWeek := range user.UserWeeks {
+			for _, selection := range userWeek.Selections {
+				teams[selection.Team] += selection.Confidence
+			}
+		}
+	}
+
+	var keys []TeamConfidence
+	for k, v := range teams {
+		keys = append(keys, TeamConfidence{Team: k, Confidence: v})
+	}
+
+	sort.Sort(ByTConfidence(keys))
+
+	for _, v := range keys {
+		fmt.Fprintln(w, v)
+	}
+}
+
 type UserGameTmpl struct {
 	Num        int
 	TeamV      string
@@ -1101,6 +1241,7 @@ func webSrv() {
 	http.HandleFunc("/select/", selectGetHandler)
 	http.HandleFunc("/selectDnD/", selectDnDGetHandler)
 	http.HandleFunc("/results/", resultGetHandler)
+	http.HandleFunc("/stats/", statsGetHandler)
 	http.HandleFunc("/register", registerGetHandler)
 	http.HandleFunc("/pwreset", pwresetReqGetHandler)
 	http.HandleFunc("/reset", pwresetGetHandler)
