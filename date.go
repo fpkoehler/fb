@@ -21,7 +21,7 @@ func NewDate(t time.Time) *Date {
 func (d *Date) Set(s string) {
 	t, err := time.ParseInLocation("Monday, January 2, 2006", s, timeZone)
 	if err != nil {
-		t, err = time.ParseInLocation("Mon 01/02/2006", s, timeZone)
+		t, err = time.ParseInLocation("Mon 1/2", s, timeZone)
 		if err != nil {
 			fmt.Println(err.Error())
 			stackStr := make([]byte, 1000, 1000)

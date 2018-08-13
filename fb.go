@@ -101,7 +101,7 @@ func (a ByStandingRow) Less(i, j int) bool { return a[i].Total > a[j].Total }
 
 var options Options
 
-var season = Season{Year: 2017}
+var season = Season{Year: 2018}
 
 // will be indexed by user name
 var users map[string]*User
@@ -471,8 +471,8 @@ func updateUserScoresWeekIndex(iw int) {
 			game := season.Week[iw].teamToGame[s.Team]
 			if game == nil {
 				_, _, line, _ := runtime.Caller(0)
-				fmt.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
-				log.Println("line", line, "Could not find game for user", u.Email, "selection", s.Team)
+				fmt.Println("line", line, "iWeek", iw, "Could not find game for user", u.Email, "selection", s.Team)
+				log.Println("line", line, "iWeek", iw, "Could not find game for user", u.Email, "selection", s.Team)
 				continue
 			}
 			if game.Status == InProgress || game.Status == Finished {
@@ -567,15 +567,26 @@ func (iter *gameSchPageIterator) Next() bool {
 	}
 
 	if strings.Compare("divider", iter.p.Tok.Attr[0].Val) == 0 {
+		// section for games on this day
 		iter.dayStr = iter.p.GetText()
 
-		iter.p.SeekTag("left") // advances to game status/time
+		// advances to game date which will be same as iter.dayStr
+		iter.p.SeekTag("left")
+	}
+
+	iter.p.SeekTag("center", "right")
+
+	if strings.Compare("right", iter.p.Tok.Attr[0].Val) == 0 {
+		// Game time
+		timeStr = iter.p.GetText()
+	} else {
+		// center tag.
+		// <th class="center" style="width:10%;">FINAL</th></tr>
+		timeStr = iter.p.GetText()
 	}
 
 	scoreVStr = ""
 	scoreHStr = ""
-
-	timeStr = iter.p.GetText()
 
 	iter.p.SeekTag("left")
 	teamVStr = toTeam[iter.p.GetText()]
