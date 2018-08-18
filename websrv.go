@@ -997,7 +997,7 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 	// var pGame *Game
 	var pSelection *Selection
 
-	when := time.Now()
+	when := time.Now().Round(0) // Round(0) strips monotonic clock reading
 	for _, game := range season.Week[week].Games {
 		if game.Status == InProgress || game.Status == Finished {
 			continue
