@@ -26,7 +26,7 @@ Today is {{.Date}}
 <fieldset>
 <legend>Choose Picks</legend>
   {{range $index, $week := .Picks}}
-  <p><a href=select/{{$week.Indx}}>week {{$week.Num}}</a><small> {{$week.StartDate}} {{$week.EndDate}}</small></p>
+  <p><a href=selectDnD/{{$week.Indx}}>week {{$week.Num}}</a><small> {{$week.StartDate}} {{$week.EndDate}}</small></p>
   {{end}}
 </fieldset>
 </div>

@@ -6,29 +6,12 @@
 <link rel="stylesheet" type="text/css" href="../../resources/styles.css">
 <script type="text/javascript" src="../../resources/sorttable.js?version=2"></script>
 <script>
-function allowDrop(ev) {
-    ev.preventDefault();
-}
 
-function drag(ev) {
-    ev.dataTransfer.setData("text", ev.target.rowIndex);
-}
-
-function drop(ev) {
-    ev.preventDefault();
+function moveRowEntry(sIndex, tIndex) {
+    var i;
     var table = document.getElementById("selectTable");
     var rows = table.getElementsByTagName("TR");
 
-    var sIndex = ev.dataTransfer.getData("text");
-    var tCell = ev.target;  // target cell, for some reason a TD rather than TR
-    var tRow = tCell.parentNode; // get target row
-    var tIndex = tRow.rowIndex;
-
-    /* make sure they are numbers not strings */
-    sIndex = Number(sIndex);
-    tIndex = Number(tIndex);
-
-    var i;
     if (tIndex > sIndex) {
         /* bubble down */
         for (i = sIndex; i < tIndex; i++) {
@@ -48,6 +31,47 @@ function drop(ev) {
         }
     } 
 }
+
+function allowDrop(ev) {
+    ev.preventDefault();
+}
+
+function drag(ev) {
+    ev.dataTransfer.setData("text", ev.target.rowIndex);
+}
+
+function drop(ev) {
+    ev.preventDefault();
+
+    var sIndex = ev.dataTransfer.getData("text");
+    var tCell = ev.target;  // target cell, for some reason a TD rather than TR
+    var tRow = tCell.parentNode; // get target row
+    var tIndex = tRow.rowIndex;
+
+    /* make sure they are numbers not strings */
+    sIndex = Number(sIndex);
+    tIndex = Number(tIndex);
+
+    moveRowEntry(sIndex, tIndex);
+}
+
+function touchMoveFunc(event) {
+  if (event.touches.length == 1) {
+    // prevents the touch move from causing scrolling
+    event.preventDefault();
+  }
+}
+
+function touchEndFunc(event) {
+  var touch = event.changedTouches[0];
+  var dst = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (dst.nodeName == "TD") {
+    var dstRowIndex = dst.parentNode.rowIndex;
+    var srcRowIndex = event.currentTarget.rowIndex;
+    moveRowEntry(srcRowIndex, dstRowIndex);
+  }
+}
+
 </script>
 </head>
 
@@ -71,6 +95,8 @@ function drop(ev) {
 
 <p>NFL Week {{$.UWeek}}</p>
 
+<p><a href=../select/{{$.Week}}>Old Style Picks form</a></p>
+
 <form action="/save/{{$.Week}}" method="POST">
 <div><input type="submit" value="Save"></div>
 <table class="sortable" id="selectTable">
@@ -82,7 +108,7 @@ function drop(ev) {
   </tr>
 
   {{range $index, $game := .Games}}
-  <tr ondrop="drop(event)" ondragover="allowDrop(event)" draggable="true" ondragstart="drag(event)">
+  <tr ondrop="drop(event)" ondragover="allowDrop(event)" draggable="true" ondragstart="drag(event)" ontouchmove="touchMoveFunc(event)" ontouchend="touchEndFunc(event)">
    <td><input type="number" name="confidence{{$game.TeamV}}" value={{$game.Confidence}} readonly></td>
    <td>{{$game.Status}}</td>
    <td><input type="radio" name="{{$game.TeamV}}" value="away" {{$game.CheckedV}}>{{$game.TeamV}} vs 
