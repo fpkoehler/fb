@@ -33,7 +33,7 @@ const (
 	Finished
 )
 
-const numberOfWeeks = 17
+const numberOfWeeks = 5
 
 type Game struct {
 	TeamV  string
@@ -101,7 +101,7 @@ func (a ByStandingRow) Less(i, j int) bool { return a[i].Total > a[j].Total }
 
 var options Options
 
-var season = Season{Year: 2018}
+var season = Season{Year: 2019}
 
 // will be indexed by user name
 var users map[string]*User
