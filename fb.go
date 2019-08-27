@@ -16,7 +16,6 @@ import (
 type Options struct {
 	UpdateFromWeb   bool
 	ScheduleFromWeb bool
-	RedirectUrl     string
 	ScheduleUrl     string
 	UpdateUrl       string
 	PwRecoverSecret string
@@ -711,14 +710,6 @@ func getSchedule(week int, url string) {
 		"end", season.Week[week].weekEnd.Format("Mon Jan 2"))
 	log.Println("Games in progress = ", gamesInProgress)
 	log.Println("All Games Final = ", allGamesFinal)
-}
-
-/**********************************************************/
-
-func redirectToHttps(w http.ResponseWriter, r *http.Request) {
-	// Redirect the incoming HTTP request.
-	log.Println("redirectToHttps", r.RemoteAddr, r.RequestURI)
-	http.Redirect(w, r, options.RedirectUrl+r.RequestURI, http.StatusFound)
 }
 
 /**********************************************************/
