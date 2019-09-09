@@ -1085,6 +1085,8 @@ func selectPostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func webSrv() {
+	mux := http.NewServeMux()
+
 	// Load and parse templates (from binary or disk)
 	templateBox = rice.MustFindBox("templates")
 	templateBox.Walk("", newTemplate)
@@ -1092,78 +1094,49 @@ func webSrv() {
 	// The resources directory that contains CSS and JavaScript files
 	resourceBox := rice.MustFindBox("resources")
 	resourceFileServer := http.StripPrefix("/resources/", http.FileServer(resourceBox.HTTPBox()))
-	http.Handle("/resources/", resourceFileServer)
+	mux.Handle("/resources/", resourceFileServer)
 
 	/* handlers for GETs */
-	http.HandleFunc("/", loginGetHandler)
-	http.HandleFunc("/user", userGetHandler)
-	http.HandleFunc("/profile", profileGetHandler)
-	http.HandleFunc("/select/", selectGetHandler)
-	http.HandleFunc("/selectDnD/", selectDnDGetHandler)
-	http.HandleFunc("/results/", resultGetHandler)
-	http.HandleFunc("/register", registerGetHandler)
-	http.HandleFunc("/pwreset", pwresetReqGetHandler)
-	http.HandleFunc("/reset", pwresetGetHandler)
+	mux.HandleFunc("/", loginGetHandler)
+	mux.HandleFunc("/user", userGetHandler)
+	mux.HandleFunc("/profile", profileGetHandler)
+	mux.HandleFunc("/select/", selectGetHandler)
+	mux.HandleFunc("/selectDnD/", selectDnDGetHandler)
+	mux.HandleFunc("/results/", resultGetHandler)
+	mux.HandleFunc("/register", registerGetHandler)
+	mux.HandleFunc("/pwreset", pwresetReqGetHandler)
+	mux.HandleFunc("/reset", pwresetGetHandler)
 
 	/* handlers for POSTs */
-	http.HandleFunc("/login", loginPostHandler)
-	http.HandleFunc("/logout", logoutPostHandler)
-	http.HandleFunc("/save/", selectPostHandler)
-	http.HandleFunc("/Register", registerPostHandler)
-	http.HandleFunc("/PwReset", pwresetReqPostHandler)
-	http.HandleFunc("/Reset", pwresetPostHandler)
-
-	/* put css files in the resources directory
-	 * See http://stackoverflow.com/questions/13302020/rendering-css-in-a-go-web-application
-	 * and https://groups.google.com/forum/#!topic/golang-nuts/bStLPdIVM6w
-	 * for hiding contents of that directory  */
-	//	http.Handle("/resources/", http.StripPrefix("/resources/", http.FileServer(http.Dir("resources"))))
-
-	// Start the HTTPS server in a goroutine
-	go func() {
-		/* Using Let's Encrypt (https://letsencrypt.org/)
-		 * This is supported in Go's experimental autocert package */
-
-		m := autocert.Manager{
-			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(options.HostWhiteList),
-			Cache:      autocert.DirCache("./certCache"),
-			Email:      options.AdminEmail,
-		}
-
-		/* When we are not in the HostWhitelist, we want to defer to the
-		 * self-signed certs server.{pem,key}.  If GetCertificate returns nil,
-		 * then the certificate specified in ListenAndServeTLS() will be used
-		 * (assuming tls.Config.NameToCertificate is nil).
-		 *
-		 * So given all of that, we have this wrapper function which calls
-		 * the autocert manager's GetCertificate and if that errors, we
-		 * return nil, thus allowing http.TLS to use the specified self-
-		 * signed certificates */
-		getCert := func(hello *tls.ClientHelloInfo) (cert *tls.Certificate, err error) {
-			cert, err = m.GetCertificate(hello)
-			if err != nil {
-				return nil, nil
-			}
-			return cert, err
-		}
-
-		s := &http.Server{
-			//Addr:      ":https",
-			Addr:      ":4430",
-			TLSConfig: &tls.Config{GetCertificate: getCert},
-		}
-
-		err := s.ListenAndServeTLS("server.pem", "server.key")
-		if err != nil {
-			log.Fatalf("ListenAndServeTLS error: %v", err)
-		}
-	}()
+	mux.HandleFunc("/login", loginPostHandler)
+	mux.HandleFunc("/logout", logoutPostHandler)
+	mux.HandleFunc("/save/", selectPostHandler)
+	mux.HandleFunc("/Register", registerPostHandler)
+	mux.HandleFunc("/PwReset", pwresetReqPostHandler)
+	mux.HandleFunc("/Reset", pwresetPostHandler)
 
 	log.Println("Starting Web Server")
 
-	// Start the HTTP server and redirect all incoming connections to HTTPS
-	err := http.ListenAndServe(":8080", http.HandlerFunc(redirectToHttps))
+	certManager := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist("fpkoehler.dyndns.org"),
+		Cache:      autocert.DirCache("./certCache"),
+		Email:      "fkoehler@aol.com",
+	}
+
+	server := &http.Server{
+		Addr:    ":4430",
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			GetCertificate: certManager.GetCertificate,
+		},
+	}
+
+	go http.ListenAndServe(":8080", certManager.HTTPHandler(mux))
+	err := server.ListenAndServeTLS("", "")
+
+//	// Start the HTTP server and redirect all incoming connections to HTTPS
+//	err := http.ListenAndServe(":8080", http.HandlerFunc(redirectToHttps))
 	if err != nil {
 		log.Fatalf("ListenAndServe error: %v", err)
 	}
