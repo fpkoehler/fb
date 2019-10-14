@@ -683,6 +683,68 @@ func resultGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func analyzeGetHandler(w http.ResponseWriter, r *http.Request) {
+	userName := getUserName(r)
+	if userName == "" {
+		http.Error(w, "no user logged in", http.StatusInternalServerError)
+		return
+	}
+
+	_, ok := users[userName]
+	if !ok {
+		http.Error(w, "no user for "+userName, http.StatusInternalServerError)
+		return
+	}
+
+	/* path will look something like /analyze/1
+	 * Extract the number */
+	week, err := strconv.Atoi(strings.Trim(r.URL.Path, "/analyze/"))
+	if err != nil {
+		log.Println("expecting /analyze/<weekIndex>, got", r.URL.Path)
+		http.Error(w, "expecting /analyze/<weekIndex>, got "+r.URL.Path, http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintln(w, "weekIndex =", week)
+	if week < 0 || week > numberOfWeeks {
+		fmt.Fprintln(w, "weeks out of range")
+		return
+	}
+
+	for indx, game := range season.Week[week].Games {
+		fmt.Fprintln(w, indx, game.TeamV, game.TeamH)
+		for userName, user := range users {
+			for _, selection := range user.UserWeeks[week].Selections {
+				if selection.Team == game.TeamV || selection.Team == game.TeamH {
+					if game.Status == Finished {
+						points := 0
+						scoreV, err := strconv.Atoi(game.ScoreV)
+						if err != nil {
+							continue
+						}
+						scoreH, err := strconv.Atoi(game.ScoreH)
+						if err != nil {
+							continue
+						}
+
+						if selection.Team == game.TeamV && scoreV > scoreH {
+							points = selection.Confidence
+						}
+						if selection.Team == game.TeamH && scoreH > scoreV {
+							points = selection.Confidence
+						}
+						fmt.Fprintln(w, " ", points, userName, selection.Team)
+						//fmt.Fprintln(w, " ", selection, game, selection.Team == game.TeamV, game.ScoreV, game.ScoreH, game.ScoreV > game.ScoreH)
+					} else {
+						fmt.Fprintln(w, " ", userName, selection.Team, selection.Confidence)
+					}
+					break
+				}
+			}
+		}
+	}
+
+}
+
 type UserGameTmpl struct {
 	Num        int
 	TeamV      string
@@ -1103,6 +1165,7 @@ func webSrv() {
 	mux.HandleFunc("/select/", selectGetHandler)
 	mux.HandleFunc("/selectDnD/", selectDnDGetHandler)
 	mux.HandleFunc("/results/", resultGetHandler)
+	mux.HandleFunc("/analyze/", analyzeGetHandler)
 	mux.HandleFunc("/register", registerGetHandler)
 	mux.HandleFunc("/pwreset", pwresetReqGetHandler)
 	mux.HandleFunc("/reset", pwresetGetHandler)
@@ -1135,8 +1198,6 @@ func webSrv() {
 	go http.ListenAndServe(":8080", certManager.HTTPHandler(mux))
 	err := server.ListenAndServeTLS("", "")
 
-//	// Start the HTTP server and redirect all incoming connections to HTTPS
-//	err := http.ListenAndServe(":8080", http.HandlerFunc(redirectToHttps))
 	if err != nil {
 		log.Fatalf("ListenAndServe error: %v", err)
 	}
