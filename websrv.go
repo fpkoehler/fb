@@ -749,6 +749,8 @@ type UserGameTmpl struct {
 	Num        int
 	TeamV      string
 	TeamH      string
+	TeamLogoV  string
+	TeamLogoH  string
 	CheckedV   string
 	CheckedH   string
 	TeamSel    string
@@ -1004,6 +1006,8 @@ func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
 			Num:        indx + 1,
 			TeamV:      game.TeamV,
 			TeamH:      game.TeamH,
+			TeamLogoV:  toLogo[game.TeamV],
+			TeamLogoH:  toLogo[game.TeamH],
 			ScoreV:     game.ScoreV,
 			ScoreH:     game.ScoreH,
 			CheckedV:   checkV,

@@ -44,8 +44,11 @@
   <tr class="draggable">
    <td><input type="number" name="confidence{{$game.TeamV}}" value={{$game.Confidence}} style="width: 3em" readonly></td>
    <td>{{$game.Status}}</td>
-   <td><input type="radio" name="{{$game.TeamV}}" value="away" {{$game.CheckedV}}>{{$game.TeamV}} vs 
-       <input type="radio" name="{{$game.TeamV}}" value="home" {{$game.CheckedH}}>{{$game.TeamH}}</td>
+   <td><input type="radio" name="{{$game.TeamV}}" value="away" {{$game.CheckedV}}>
+        <img src="resources/logos/{{$game.TeamLogoV}}" alt="{{$game.TeamV}}">
+       <input type="radio" name="{{$game.TeamV}}" value="home" {{$game.CheckedH}}>
+        <img src="resources/logos/{{$game.TeamLogoH}}" alt="{{$game.TeamH}}">
+   </td>
   </tr>
   {{end}}
 

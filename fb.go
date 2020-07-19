@@ -107,6 +107,8 @@ var users map[string]*User
 
 var toTeam map[string]string
 
+var toLogo map[string]string
+
 /* Current index into season.Week[] */
 var iWeek int
 
@@ -182,6 +184,41 @@ func init() {
 		"Tennessee Titans":     "Titans",
 		"Washington":           "Redskins",
 		"Washington Redskins":  "Redskins",
+	}
+
+	toLogo = map[string]string{
+		"Cardinals":  "ARI.svg",
+		"Falcons":    "ATL.svg",
+		"Ravens":     "BAL.svg",
+		"Bills":      "BUF.svg",
+		"Panthers":   "CAR.svg",
+		"Bears":      "CHI.svg",
+		"Bengals":    "CIN.svg",
+		"Browns":     "CLE.svg",
+		"Cowboys":    "DAL.svg",
+		"Broncos":    "DEN.svg",
+		"Lions":      "DET.svg",
+		"Packers":    "GB.svg",
+		"Texans":     "HOU.svg",
+		"Colts":      "IND.svg",
+		"Jaguars":    "JAX.svg",
+		"Chiefs":     "KC.svg",
+		"Chargers":   "LAC.svg",
+		"Rams":       "LA.svg",
+		"Dolphins":   "MIA.svg",
+		"Vikings":    "MIN.svg",
+		"Patriots":   "NE.svg",
+		"Saints":     "NO.svg",
+		"Giants":     "NYG.svg",
+		"Jets":       "NYJ.svg",
+		"Raiders":    "OAK.svg",
+		"Eagles":     "PHI.svg",
+		"Steelers":   "PIT.svg",
+		"49ers":      "SF.svg",
+		"Seahawks":   "SEA.svg",
+		"Buccaneers": "TB.svg",
+		"Titans":     "TEN.svg",
+		"Redskins":   "WAS.svg",
 	}
 }
 
