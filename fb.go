@@ -32,7 +32,7 @@ const (
 	Finished
 )
 
-const numberOfWeeks = 17
+const numberOfWeeks = 5
 
 type Game struct {
 	TeamV  string
@@ -164,8 +164,8 @@ func init() {
 		"New York Giants":      "Giants",
 		"NY Jets":              "Jets",
 		"New York Jets":        "Jets",
-		"Oakland":              "Raiders",
-		"Oakland Raiders":      "Raiders",
+		"Las Vegas":            "Raiders",
+		"Las Vegas Raiders":    "Raiders",
 		"Philadelphia":         "Eagles",
 		"Philadelphia Eagles":  "Eagles",
 		"Pittsburgh":           "Steelers",
