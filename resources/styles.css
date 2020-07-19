@@ -34,7 +34,12 @@ th, td {
     padding: 5px;
     text-align: left;
 }
-
+tr.draggable:active {
+  background-color: rgba(192, 192, 192, 1.00);
+}
+tr.draggable:hover {
+  background-color: rgba(192, 192, 192, 1.00);
+}
 /* *************************************
  *  The horizontal menu strip
  * *************************************/
