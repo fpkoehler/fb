@@ -906,9 +906,17 @@ func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no user for "+userName, http.StatusInternalServerError)
 		return
 	}
+
+	/* this form supports selectDnD.html and selectLogo.html.
+	 * figure out which one we have. */
+	selectForm := "selectDnD"
+	if strings.Contains(r.URL.Path, "selectLogo") {
+		selectForm = "selectLogo"
+	}
+
 	/* path will look something like /selectDnD/1
 	 * Extract the number */
-	week, err := strconv.Atoi(strings.Trim(r.URL.Path, "/selectDnD/"))
+	week, err := strconv.Atoi(strings.Trim(r.URL.Path, "/"+selectForm+"/"))
 	if err != nil {
 		log.Println("user", user, "selected", r.URL.Path, "does not exist")
 		http.Error(w, "user "+userName+" "+r.URL.Path+" does not exist", http.StatusInternalServerError)
@@ -1016,7 +1024,7 @@ func selectDnDGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	sort.Sort(ByConfidence(data.Games))
 
-	err = templates.ExecuteTemplate(w, "selectDnD.html", &data)
+	err = templates.ExecuteTemplate(w, selectForm+".html", &data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -1164,6 +1172,7 @@ func webSrv() {
 	mux.HandleFunc("/profile", profileGetHandler)
 	mux.HandleFunc("/select/", selectGetHandler)
 	mux.HandleFunc("/selectDnD/", selectDnDGetHandler)
+	mux.HandleFunc("/selectLogo/", selectDnDGetHandler)
 	mux.HandleFunc("/results/", resultGetHandler)
 	mux.HandleFunc("/analyze/", analyzeGetHandler)
 	mux.HandleFunc("/register", registerGetHandler)
