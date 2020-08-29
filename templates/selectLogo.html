@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FB Confidence Pool</title>
 <link rel="stylesheet" type="text/css" href="../../resources/styles.css">
 <script type="text/javascript" src="../../resources/sorttable.js?version=2"></script>
@@ -21,32 +21,34 @@
 
 <h2>Enter Picks and Confidence Level</h2>
 <ul>
-<li>Confidence levels must be unique</li>
-<li>You can make a pick for a given game just before gametime</li>
-<li>Click on a column heading (<b>Game Status</b> or <b>Confidence</b>) to sort a column</li>
+<li>Select winner of each game</li>
+<li>Drag and drop rows up or down to change confidence levels</li>
 </ul>
 
 <p>NFL Week {{$.UWeek}}</p>
 
-<p><a href=../selectLogo/{{$.Week}}>Drag N Drop Logo form</a></p>
 <p><a href=../selectDnD/{{$.Week}}>Drag N Drop form</a></p>
+<p><a href=../select/{{$.Week}}>Old Style Picks form</a></p>
 
 <form action="/save/{{$.Week}}" method="POST">
 <div><input type="submit" value="Save"></div>
-<table class="sortable">
+<table class="sortable" id="selectTable">
 
   <tr>
-   <th>Game Status</th>
    <th>Confidence</th>
+   <th class="sorttable_nosort">Game Status</th>
    <th class="sorttable_nosort">Teams</th>
   </tr>
 
   {{range $index, $game := .Games}}
-  <tr>
+  <tr class="draggable">
+   <td><input type="number" name="confidence{{$game.TeamV}}" value={{$game.Confidence}} style="width: 3em" readonly></td>
    <td>{{$game.Status}}</td>
-   <td><input type="number" name="confidence{{$game.TeamV}}" min="1" max="16" value={{$game.Confidence}} style="width: 3em"></td>
-   <td><input type="radio" name="{{$game.TeamV}}" value="away" {{$game.CheckedV}}>{{$game.TeamV}} vs 
-       <input type="radio" name="{{$game.TeamV}}" value="home" {{$game.CheckedH}}>{{$game.TeamH}}</td>
+   <td><input type="radio" name="{{$game.TeamV}}" value="away" {{$game.CheckedV}}>
+        <img src="../../resources/logos/{{$game.TeamLogoV}}" alt="{{$game.TeamV}}">
+       <input type="radio" name="{{$game.TeamV}}" value="home" {{$game.CheckedH}}>
+        <img src="../../resources/logos/{{$game.TeamLogoH}}" alt="{{$game.TeamH}}">
+   </td>
   </tr>
   {{end}}
 
@@ -64,6 +66,9 @@
   {{end}}
  </table>
 </div>
+
+<script type="text/javascript" src="../../resources/dragNDrop.js?version=1">
+</script>
 
 </body>
 </html>

@@ -1,78 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FB Confidence Pool</title>
 <link rel="stylesheet" type="text/css" href="../../resources/styles.css">
 <script type="text/javascript" src="../../resources/sorttable.js?version=2"></script>
-<script>
-
-function moveRowEntry(sIndex, tIndex) {
-    var i;
-    var table = document.getElementById("selectTable");
-    var rows = table.getElementsByTagName("TR");
-
-    if (tIndex > sIndex) {
-        /* bubble down */
-        for (i = sIndex; i < tIndex; i++) {
-            rows[i].parentNode.insertBefore(rows[i+1], rows[i]);
-            var tmp = rows[i].cells[0].children[0].value;
-            rows[i].cells[0].children[0].value = rows[i+1].cells[0].children[0].value;
-            rows[i+1].cells[0].children[0].value = tmp;
-        }
-    }
-    if (sIndex > tIndex) {
-        /* bubble up */
-        for (i = sIndex-1; i >= tIndex; i--) {
-            rows[i].parentNode.insertBefore(rows[i+1], rows[i]);
-            var tmp = rows[i].cells[0].children[0].value;
-            rows[i].cells[0].children[0].value = rows[i+1].cells[0].children[0].value;
-            rows[i+1].cells[0].children[0].value = tmp;
-        }
-    } 
-}
-
-function allowDrop(ev) {
-    ev.preventDefault();
-}
-
-function drag(ev) {
-    ev.dataTransfer.setData("text", ev.target.rowIndex);
-}
-
-function drop(ev) {
-    ev.preventDefault();
-
-    var sIndex = ev.dataTransfer.getData("text");
-    var tCell = ev.target;  // target cell, for some reason a TD rather than TR
-    var tRow = tCell.parentNode; // get target row
-    var tIndex = tRow.rowIndex;
-
-    /* make sure they are numbers not strings */
-    sIndex = Number(sIndex);
-    tIndex = Number(tIndex);
-
-    moveRowEntry(sIndex, tIndex);
-}
-
-function touchMoveFunc(event) {
-  if (event.touches.length == 1) {
-    // prevents the touch move from causing scrolling
-    event.preventDefault();
-  }
-}
-
-function touchEndFunc(event) {
-  var touch = event.changedTouches[0];
-  var dst = document.elementFromPoint(touch.clientX, touch.clientY);
-  if (dst.nodeName == "TD") {
-    var dstRowIndex = dst.parentNode.rowIndex;
-    var srcRowIndex = event.currentTarget.rowIndex;
-    moveRowEntry(srcRowIndex, dstRowIndex);
-  }
-}
-
-</script>
 </head>
 
 <body>
@@ -95,6 +27,7 @@ function touchEndFunc(event) {
 
 <p>NFL Week {{$.UWeek}}</p>
 
+<p><a href=../selectLogo/{{$.Week}}>Drag N Drop Logo form</a></p>
 <p><a href=../select/{{$.Week}}>Old Style Picks form</a></p>
 
 <form action="/save/{{$.Week}}" method="POST">
@@ -108,8 +41,8 @@ function touchEndFunc(event) {
   </tr>
 
   {{range $index, $game := .Games}}
-  <tr ondrop="drop(event)" ondragover="allowDrop(event)" draggable="true" ondragstart="drag(event)" ontouchmove="touchMoveFunc(event)" ontouchend="touchEndFunc(event)">
-   <td><input type="number" name="confidence{{$game.TeamV}}" value={{$game.Confidence}} readonly></td>
+  <tr class="draggable">
+   <td><input type="number" name="confidence{{$game.TeamV}}" value={{$game.Confidence}} style="width: 3em" readonly></td>
    <td>{{$game.Status}}</td>
    <td><input type="radio" name="{{$game.TeamV}}" value="away" {{$game.CheckedV}}>{{$game.TeamV}} vs 
        <input type="radio" name="{{$game.TeamV}}" value="home" {{$game.CheckedH}}>{{$game.TeamH}}</td>
@@ -130,6 +63,9 @@ function touchEndFunc(event) {
   {{end}}
  </table>
 </div>
+
+<script type="text/javascript" src="../../resources/dragNDrop.js?version=1">
+</script>
 
 </body>
 </html>
