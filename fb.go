@@ -32,7 +32,7 @@ const (
 	Finished
 )
 
-const numberOfWeeks = 5
+const numberOfWeeks = 17
 
 type Game struct {
 	TeamV  string
@@ -100,7 +100,7 @@ func (a ByStandingRow) Less(i, j int) bool { return a[i].Total > a[j].Total }
 
 var options Options
 
-var season = Season{Year: 2019}
+var season = Season{Year: 2020}
 
 // will be indexed by user name
 var users map[string]*User
@@ -154,6 +154,8 @@ func init() {
 		"Los Angeles Chargers": "Chargers",
 		"LA Rams":              "Rams",
 		"Los Angeles Rams":     "Rams",
+		"Las Vegas":            "Raiders",
+		"Las Vegas Raiders":    "Raiders",
 		"Miami":                "Dolphins",
 		"Miami Dolphins":       "Dolphins",
 		"Minnesota":            "Vikings",
@@ -166,8 +168,6 @@ func init() {
 		"New York Giants":      "Giants",
 		"NY Jets":              "Jets",
 		"New York Jets":        "Jets",
-		"Las Vegas":            "Raiders",
-		"Las Vegas Raiders":    "Raiders",
 		"Philadelphia":         "Eagles",
 		"Philadelphia Eagles":  "Eagles",
 		"Pittsburgh":           "Steelers",
